@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: secret-vault-db-dev
+    environment:
+      POSTGRES_DB: secret_vault_dev
+      POSTGRES_USER: vault_user
+      POSTGRES_PASSWORD: devpassword123
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./database/migrations:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vault_user -d secret_vault_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vault-network-dev
+
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile.dev
+    container_name: secret-vault-api-dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgres://vault_user:devpassword123@postgres:5432/secret_vault_dev
+      MASTER_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      JWT_SECRET: dev-jwt-secret-key-change-in-production
+      JWT_REFRESH_SECRET: dev-jwt-refresh-secret-change-in-production
+      CORS_ORIGIN: http://localhost:5173
+    volumes:
+      - ./apps/backend/src:/app/src:ro
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    networks:
+      - vault-network-dev
+
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: Dockerfile.dev
+    container_name: secret-vault-web-dev
+    depends_on:
+      - backend
+    environment:
+      VITE_API_URL: http://localhost:3000
+    volumes:
+      - ./apps/frontend/src:/app/src:ro
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    networks:
+      - vault-network-dev
+
+volumes:
+  postgres_dev_data:
+
+networks:
+  vault-network-dev:
+    driver: bridge

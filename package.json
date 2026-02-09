@@ -1,0 +1,22 @@
+{
+  "name": "secret-vault",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "docker-compose -f docker-compose.dev.yml up",
+    "dev:backend": "npm run dev -w @secret-vault/backend",
+    "dev:frontend": "npm run dev -w @secret-vault/frontend",
+    "build": "npm run build -w @secret-vault/shared && npm run build -w @secret-vault/backend && npm run build -w @secret-vault/frontend && npm run build -w @secret-vault/cli",
+    "build:backend": "npm run build -w @secret-vault/backend",
+    "build:frontend": "npm run build -w @secret-vault/frontend",
+    "build:cli": "npm run build -w @secret-vault/cli",
+    "cli": "npm run start -w @secret-vault/cli --"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}
