@@ -4,14 +4,14 @@
 # Quick Start:
 #   1. Download this file and .env.example
 #   2. Copy .env.example to .env and configure
-#   3. docker-compose up -d
+#   3. docker compose up -d
 #
 # 빠른 시작:
 #   1. 이 파일과 .env.example 다운로드
 #   2. .env.example을 .env로 복사하고 설정
-#   3. docker-compose up -d
-
-version: '3.8'
+#   3. docker compose up -d
+#
+# Note: Requires Docker Compose v2 (docker compose, not docker-compose)
 
 services:
   db:

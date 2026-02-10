@@ -60,7 +60,7 @@ curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/
 ```
 
 ```bash
-cd secret-vault && docker-compose up -d
+cd secret-vault && docker compose up -d
 ```
 
 Access: **http://localhost**
@@ -71,8 +71,8 @@ Access: **http://localhost**
 # 1. Create directory
 mkdir secret-vault && cd secret-vault
 
-# 2. Download docker-compose.yml
-curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/docker-compose.yml -o docker-compose.yml
+# 2. Download docker compose.yml
+curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/docker compose.yml -o docker compose.yml
 curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/init.sql -o init.sql
 
 # 3. Create .env file with secure keys
@@ -89,7 +89,7 @@ CORS_ORIGIN=http://localhost
 EOF
 
 # 4. Run
-docker-compose up -d
+docker compose up -d
 ```
 
 ### Option 3: Docker Run (Without Compose)
@@ -285,7 +285,7 @@ curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/
 ```
 
 ```bash
-cd secret-vault && docker-compose up -d
+cd secret-vault && docker compose up -d
 ```
 
 접속: **http://localhost**
@@ -296,8 +296,8 @@ cd secret-vault && docker-compose up -d
 # 1. 디렉토리 생성
 mkdir secret-vault && cd secret-vault
 
-# 2. docker-compose.yml 다운로드
-curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/docker-compose.yml -o docker-compose.yml
+# 2. docker compose.yml 다운로드
+curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/docker compose.yml -o docker compose.yml
 curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/init.sql -o init.sql
 
 # 3. 보안 키가 포함된 .env 파일 생성
@@ -314,7 +314,7 @@ CORS_ORIGIN=http://localhost
 EOF
 
 # 4. 실행
-docker-compose up -d
+docker compose up -d
 ```
 
 ### 방법 3: Docker Run (Compose 없이)
@@ -368,7 +368,7 @@ docker run -d --name secret-vault-frontend \
 ```bash
 # Ubuntu
 sudo apt update
-sudo apt install -y docker.io docker-compose
+sudo apt install -y docker.io docker compose
 sudo systemctl enable docker
 sudo usermod -aG docker $USER
 
@@ -388,17 +388,17 @@ exit
 ```bash
 curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/install.sh | bash
 cd secret-vault
-docker-compose up -d
+docker compose up -d
 ```
 
 #### 3단계: 접속 확인
 
 ```bash
 # 상태 확인
-docker-compose ps
+docker compose ps
 
 # 로그 확인
-docker-compose logs -f
+docker compose logs -f
 ```
 
 접속: `http://YOUR_SERVER_IP`
@@ -458,7 +458,7 @@ sudo systemctl restart nginx
 ```bash
 curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/install.sh | bash
 cd secret-vault
-docker-compose up -d
+docker compose up -d
 ```
 
 3. **접속**: http://localhost
@@ -470,7 +470,7 @@ docker-compose up -d
 mkdir secret-vault; cd secret-vault
 
 # 2. 파일 다운로드
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/datamaker/secret-vault/main/install/docker-compose.yml" -OutFile "docker-compose.yml"
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/datamaker/secret-vault/main/install/docker compose.yml" -OutFile "docker compose.yml"
 Invoke-WebRequest -Uri "https://raw.githubusercontent.com/datamaker/secret-vault/main/install/init.sql" -OutFile "init.sql"
 Invoke-WebRequest -Uri "https://raw.githubusercontent.com/datamaker/secret-vault/main/install/.env.example" -OutFile ".env"
 
@@ -478,7 +478,7 @@ Invoke-WebRequest -Uri "https://raw.githubusercontent.com/datamaker/secret-vault
 notepad .env
 
 # 4. 실행
-docker-compose up -d
+docker compose up -d
 ```
 
 </details>
@@ -549,10 +549,10 @@ cat .env | grep MASTER_ENCRYPTION_KEY
 
 ```bash
 # 서비스 중지 및 삭제
-docker-compose down
+docker compose down
 
 # 데이터 포함 완전 삭제
-docker-compose down -v
+docker compose down -v
 rm -rf secret-vault
 ```
 
@@ -640,8 +640,8 @@ secret-vault/
 │   └── shared/           # 공유 타입 및 상수
 ├── database/
 │   └── migrations/       # SQL 마이그레이션
-├── docker-compose.yml    # 프로덕션 설정
-└── docker-compose.dev.yml # 개발 설정
+├── docker compose.yml    # 프로덕션 설정
+└── docker compose.dev.yml # 개발 설정
 ```
 
 ---

@@ -18,7 +18,7 @@ if ! command -v docker &> /dev/null; then
 fi
 
 # Check for Docker Compose
-if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
+if ! command -v docker compose &> /dev/null && ! docker compose version &> /dev/null; then
     echo "Error: Docker Compose is not installed."
     echo "Please install Docker Compose first."
     exit 1
@@ -37,7 +37,7 @@ mkdir -p data/postgres
 echo ">>> Downloading configuration files..."
 BASE_URL="https://raw.githubusercontent.com/datamaker/secret-vault/main/install"
 
-curl -sSL "$BASE_URL/docker-compose.yml" -o docker-compose.yml
+curl -sSL "$BASE_URL/docker compose.yml" -o docker compose.yml
 curl -sSL "$BASE_URL/init.sql" -o init.sql
 curl -sSL "$BASE_URL/.env.example" -o .env.example
 
@@ -77,7 +77,7 @@ echo "========================================"
 echo ""
 echo "To start Secret Vault:"
 echo "  cd $INSTALL_DIR"
-echo "  docker-compose up -d"
+echo "  docker compose up -d"
 echo ""
 echo "Then access: http://localhost"
 echo ""
