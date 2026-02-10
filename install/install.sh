@@ -30,6 +30,9 @@ echo ">>> Creating installation directory: $INSTALL_DIR"
 mkdir -p "$INSTALL_DIR"
 cd "$INSTALL_DIR"
 
+# Create data directory for PostgreSQL persistence
+mkdir -p data/postgres
+
 # Download files
 echo ">>> Downloading configuration files..."
 BASE_URL="https://raw.githubusercontent.com/datamaker/secret-vault/main/install"
