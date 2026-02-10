@@ -1,17 +1,27 @@
+# Build from monorepo root: docker build -f apps/backend/Dockerfile .
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy all package files for workspace resolution
+COPY package.json ./
+COPY apps/backend/package.json ./apps/backend/
+COPY packages/shared/package.json ./packages/shared/
 
-# Install dependencies
-RUN npm ci
+# Copy source files
+COPY packages/shared ./packages/shared
+COPY apps/backend ./apps/backend
 
-# Copy source code
-COPY . .
+# Install and build
+WORKDIR /app
+RUN npm install
 
-# Build
+# Build shared package
+WORKDIR /app/packages/shared
+RUN npm run build
+
+# Build backend
+WORKDIR /app/apps/backend
 RUN npm run build
 
 # Production stage
@@ -21,10 +31,10 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Copy built files and dependencies
-COPY --from=builder /app/dist ./dist
+# Copy built files and dependencies from root node_modules (npm workspaces hoists deps)
+COPY --from=builder /app/apps/backend/dist ./dist
+COPY --from=builder /app/apps/backend/package.json ./
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./
 
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs

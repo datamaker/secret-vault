@@ -1,0 +1,86 @@
+# Docker Hub 이미지를 사용하는 간편 설치용 docker-compose
+# Easy installation using pre-built Docker Hub images
+#
+# 사용법 / Usage:
+#   1. .env 파일 생성 / Create .env file
+#   2. docker-compose -f docker-compose.hub.yml up -d
+
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: secret-vault-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: secret_vault
+      POSTGRES_USER: vault
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vault -d secret_vault"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vault-network
+
+  backend:
+    image: datamaker/secret-vault-backend:latest
+    container_name: secret-vault-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgres://vault:${POSTGRES_PASSWORD:-changeme}@db:5432/secret_vault
+      MASTER_ENCRYPTION_KEY: ${MASTER_ENCRYPTION_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - vault-network
+
+  frontend:
+    image: datamaker/secret-vault-frontend:latest
+    container_name: secret-vault-web
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
+    ports:
+      - "80:80"
+    networks:
+      - vault-network
+
+  # DB 초기화 (최초 실행 시에만)
+  db-init:
+    image: postgres:16-alpine
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./init.sql:/init.sql:ro
+    entrypoint: >
+      sh -c "PGPASSWORD=${POSTGRES_PASSWORD:-changeme} psql -h db -U vault -d secret_vault -f /init.sql || true"
+    networks:
+      - vault-network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  vault-network:
+    driver: bridge

@@ -1,6 +1,241 @@
 # Secret Vault
 
 <p align="center">
+  <strong>Doppler Alternative - Open Source Secret Management Platform</strong>
+</p>
+
+<p align="center">
+  Securely manage environment variables and API keys centrally, and collaborate with your team.
+</p>
+
+<p align="center">
+  <a href="https://hub.docker.com/r/datamaker/secret-vault-backend"><img src="https://img.shields.io/docker/v/datamaker/secret-vault-backend?label=Docker%20Hub&logo=docker" alt="Docker Hub"></a>
+  <a href="https://www.npmjs.com/package/@datasee/vault"><img src="https://img.shields.io/npm/v/@datasee/vault?label=CLI&logo=npm" alt="npm"></a>
+  <a href="#license"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
+</p>
+
+<p align="center">
+  <a href="#한국어-korean">한국어 문서 보기</a>
+</p>
+
+---
+
+## Key Features
+
+- **AES-256-GCM Encryption** - All secrets are stored encrypted
+- **Team-based Access Control** - Owner/Admin/Member/Viewer roles
+- **Multi-environment Support** - Development, Staging, Production environments
+- **Project Structure** - Team > Project > Environment > Secret hierarchy
+- **CLI Tool** - Command-line tool for development workflow integration
+- **Team Invitations** - Invite unregistered users (auto-added on signup)
+- **Import/Export** - .env file format support
+
+## Tech Stack
+
+| Component | Technology |
+|-----------|------------|
+| Backend | Node.js, Express, TypeScript |
+| Frontend | React, TypeScript, Vite, Tailwind CSS |
+| Database | PostgreSQL |
+| Deployment | Docker Compose |
+| Encryption | AES-256-GCM, HKDF |
+
+## Docker Images
+
+| Image | Description |
+|-------|-------------|
+| `datamaker/secret-vault-backend` | Backend API server |
+| `datamaker/secret-vault-frontend` | Frontend web application |
+
+---
+
+## Quick Start
+
+### Option 1: One-liner Installation (Recommended)
+
+The fastest way to get started. Downloads config files and generates secure keys automatically.
+
+```bash
+curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/install.sh | bash
+```
+
+```bash
+cd secret-vault && docker-compose up -d
+```
+
+Access: **http://localhost**
+
+### Option 2: Manual Installation
+
+```bash
+# 1. Create directory
+mkdir secret-vault && cd secret-vault
+
+# 2. Download docker-compose.yml
+curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/docker-compose.yml -o docker-compose.yml
+curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/init.sql -o init.sql
+
+# 3. Create .env file with secure keys
+cat > .env << EOF
+POSTGRES_USER=vault
+POSTGRES_PASSWORD=$(openssl rand -hex 16)
+POSTGRES_DB=secret_vault
+
+DATABASE_URL=postgres://vault:$(openssl rand -hex 16)@db:5432/secret_vault
+MASTER_ENCRYPTION_KEY=$(openssl rand -hex 32)
+JWT_SECRET=$(openssl rand -hex 32)
+JWT_REFRESH_SECRET=$(openssl rand -hex 32)
+CORS_ORIGIN=http://localhost
+EOF
+
+# 4. Run
+docker-compose up -d
+```
+
+### Option 3: Docker Run (Without Compose)
+
+```bash
+# 1. Create network
+docker network create secret-vault-network
+
+# 2. Run PostgreSQL
+docker run -d --name secret-vault-db \
+  --network secret-vault-network \
+  -e POSTGRES_USER=vault \
+  -e POSTGRES_PASSWORD=your_password \
+  -e POSTGRES_DB=secret_vault \
+  -v secret-vault-data:/var/lib/postgresql/data \
+  postgres:16-alpine
+
+# 3. Run Backend
+docker run -d --name secret-vault-backend \
+  --network secret-vault-network \
+  -e DATABASE_URL=postgres://vault:your_password@secret-vault-db:5432/secret_vault \
+  -e MASTER_ENCRYPTION_KEY=$(openssl rand -hex 32) \
+  -e JWT_SECRET=$(openssl rand -hex 32) \
+  -e JWT_REFRESH_SECRET=$(openssl rand -hex 32) \
+  -p 3000:3000 \
+  datamaker/secret-vault-backend:latest
+
+# 4. Run Frontend
+docker run -d --name secret-vault-frontend \
+  --network secret-vault-network \
+  -p 80:80 \
+  datamaker/secret-vault-frontend:latest
+```
+
+---
+
+## CLI Installation
+
+```bash
+npm install -g @datasee/vault
+```
+
+### CLI Commands
+
+```bash
+# Login
+vault login --api-url http://localhost:3000
+
+# Setup project
+vault setup
+
+# Manage secrets
+vault secrets list                    # List
+vault secrets get API_KEY             # Get value
+vault secrets get API_KEY --plain     # Get value only
+vault secrets set API_KEY "sk-xxx"    # Set value
+vault secrets delete API_KEY          # Delete
+
+# Run with secrets injected
+vault run -- npm start
+vault run -- python app.py
+
+# Export
+vault export                          # shell format
+vault export -f env                   # .env format
+vault export -f json                  # JSON format
+```
+
+---
+
+## Security
+
+### Encryption Architecture
+
+```
+Master Key (env variable)
+    │
+    ├─ HKDF ──► Project DEK (unique per project)
+    │               │
+    │               └─ AES-256-GCM ──► Encrypted secrets
+    │
+    └─ Exists only in server memory (not stored in DB)
+```
+
+### Authentication
+
+- **Access Token**: 15 min expiry
+- **Refresh Token**: 7 day expiry, HttpOnly Cookie
+- **Password**: bcrypt (rounds: 12)
+
+### Permissions (RBAC)
+
+| Role | Team Mgmt | Project Mgmt | Write Secrets | Read Secrets |
+|------|-----------|--------------|---------------|--------------|
+| Owner | O | O | O | O |
+| Admin | O | O | O | O |
+| Member | X | X | O | O |
+| Viewer | X | X | X | O |
+
+---
+
+## API Endpoints
+
+### Authentication
+- `POST /api/v1/auth/register` - Register
+- `POST /api/v1/auth/login` - Login
+- `POST /api/v1/auth/logout` - Logout
+- `POST /api/v1/auth/refresh` - Refresh token
+- `GET /api/v1/auth/me` - Get current user
+
+### Teams
+- `GET /api/v1/teams` - List teams
+- `POST /api/v1/teams` - Create team
+- `GET /api/v1/teams/:id/members` - List members
+- `POST /api/v1/teams/:id/members` - Add/invite member
+- `DELETE /api/v1/teams/:id/members/:userId` - Remove member
+
+### Projects
+- `GET /api/v1/projects/teams/:teamId/projects` - List projects
+- `POST /api/v1/projects/teams/:teamId/projects` - Create project
+
+### Secrets
+- `GET /api/v1/environments/:envId/secrets` - List secrets
+- `POST /api/v1/environments/:envId/secrets` - Create secret
+- `PUT /api/v1/environments/:envId/secrets/:key` - Update secret
+- `DELETE /api/v1/environments/:envId/secrets/:key` - Delete secret
+
+---
+
+## License
+
+MIT License - Free to use, modify, and distribute.
+
+---
+
+## Related Projects
+
+- [Doppler](https://www.doppler.com/) - Commercial secret management service
+- [Infisical](https://infisical.com/) - Open source secret management
+- [Vault](https://www.vaultproject.io/) - HashiCorp's secret management tool
+
+---
+
+# 한국어 (Korean)
+
+<p align="center">
   <strong>Doppler 대안 - 오픈소스 시크릿 관리 플랫폼</strong>
 </p>
 
@@ -30,38 +265,95 @@
 | Deployment | Docker Compose |
 | Encryption | AES-256-GCM, HKDF |
 
+## Docker 이미지
+
+| 이미지 | 설명 |
+|--------|------|
+| `datamaker/secret-vault-backend` | 백엔드 API 서버 |
+| `datamaker/secret-vault-frontend` | 프론트엔드 웹 애플리케이션 |
+
 ---
 
-## 빠른 시작 (Docker)
+## 빠른 시작
 
-가장 빠르게 시작하는 방법입니다.
+### 방법 1: 원라인 설치 (권장)
+
+가장 빠른 방법입니다. 설정 파일 다운로드와 보안 키 생성을 자동으로 처리합니다.
 
 ```bash
-# 1. 저장소 클론
-git clone https://github.com/YOUR_USERNAME/secret-vault.git
-cd secret-vault
+curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/install.sh | bash
+```
 
-# 2. 환경 변수 설정
-cp .env.example .env
+```bash
+cd secret-vault && docker-compose up -d
+```
 
-# 3. 암호화 키 생성 및 .env에 입력
-openssl rand -hex 32  # MASTER_ENCRYPTION_KEY
-openssl rand -hex 32  # JWT_SECRET
-openssl rand -hex 32  # JWT_REFRESH_SECRET
+접속: **http://localhost**
 
-# 4. Docker Compose로 실행
+### 방법 2: 수동 설치
+
+```bash
+# 1. 디렉토리 생성
+mkdir secret-vault && cd secret-vault
+
+# 2. docker-compose.yml 다운로드
+curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/docker-compose.yml -o docker-compose.yml
+curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/init.sql -o init.sql
+
+# 3. 보안 키가 포함된 .env 파일 생성
+cat > .env << EOF
+POSTGRES_USER=vault
+POSTGRES_PASSWORD=$(openssl rand -hex 16)
+POSTGRES_DB=secret_vault
+
+DATABASE_URL=postgres://vault:$(openssl rand -hex 16)@db:5432/secret_vault
+MASTER_ENCRYPTION_KEY=$(openssl rand -hex 32)
+JWT_SECRET=$(openssl rand -hex 32)
+JWT_REFRESH_SECRET=$(openssl rand -hex 32)
+CORS_ORIGIN=http://localhost
+EOF
+
+# 4. 실행
 docker-compose up -d
+```
 
-# 5. 접속
-# - 웹 UI: http://localhost:5173
-# - API: http://localhost:3000
+### 방법 3: Docker Run (Compose 없이)
+
+```bash
+# 1. 네트워크 생성
+docker network create secret-vault-network
+
+# 2. PostgreSQL 실행
+docker run -d --name secret-vault-db \
+  --network secret-vault-network \
+  -e POSTGRES_USER=vault \
+  -e POSTGRES_PASSWORD=your_password \
+  -e POSTGRES_DB=secret_vault \
+  -v secret-vault-data:/var/lib/postgresql/data \
+  postgres:16-alpine
+
+# 3. 백엔드 실행
+docker run -d --name secret-vault-backend \
+  --network secret-vault-network \
+  -e DATABASE_URL=postgres://vault:your_password@secret-vault-db:5432/secret_vault \
+  -e MASTER_ENCRYPTION_KEY=$(openssl rand -hex 32) \
+  -e JWT_SECRET=$(openssl rand -hex 32) \
+  -e JWT_REFRESH_SECRET=$(openssl rand -hex 32) \
+  -p 3000:3000 \
+  datamaker/secret-vault-backend:latest
+
+# 4. 프론트엔드 실행
+docker run -d --name secret-vault-frontend \
+  --network secret-vault-network \
+  -p 80:80 \
+  datamaker/secret-vault-frontend:latest
 ```
 
 ---
 
-## 설치 가이드
+## 서버 설치 가이드
 
-### EC2 / Linux 서버 설치
+### EC2 / Linux 서버
 
 <details>
 <summary>클릭하여 펼치기</summary>
@@ -91,66 +383,38 @@ sudo usermod -aG docker $USER
 exit
 ```
 
-#### 2단계: Secret Vault 설치
+#### 2단계: Secret Vault 설치 (원라인)
 
 ```bash
-# 저장소 클론
-git clone https://github.com/YOUR_USERNAME/secret-vault.git
+curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/install.sh | bash
 cd secret-vault
-
-# 환경 변수 설정
-cp .env.example .env
-nano .env  # 또는 vim .env
-```
-
-#### 3단계: .env 파일 설정
-
-```bash
-# .env 파일 내용
-NODE_ENV=production
-PORT=3000
-
-# PostgreSQL (Docker가 자동 생성)
-DATABASE_URL=postgres://vault:vault_password@db:5432/secret_vault
-
-# 아래 명령어로 생성: openssl rand -hex 32
-MASTER_ENCRYPTION_KEY=여기에_64자_hex_문자열
-JWT_SECRET=여기에_64자_hex_문자열
-JWT_REFRESH_SECRET=여기에_64자_hex_문자열
-
-# 프론트엔드 URL (CORS)
-CORS_ORIGIN=http://YOUR_SERVER_IP:5173
-```
-
-#### 4단계: 실행
-
-```bash
-# 프로덕션 모드로 실행
 docker-compose up -d
+```
+
+#### 3단계: 접속 확인
+
+```bash
+# 상태 확인
+docker-compose ps
 
 # 로그 확인
 docker-compose logs -f
-
-# 상태 확인
-docker-compose ps
 ```
 
-#### 5단계: 방화벽 설정
+접속: `http://YOUR_SERVER_IP`
+
+#### 4단계: 방화벽 설정
 
 ```bash
 # Ubuntu (UFW)
-sudo ufw allow 5173  # Frontend
-sudo ufw allow 3000  # Backend API
+sudo ufw allow 80  # HTTP
 
 # Amazon Linux (Security Group에서 설정)
 # AWS Console > EC2 > Security Groups > Inbound Rules
-# - 5173 포트 허용
-# - 3000 포트 허용
+# - 80 포트 허용
 ```
 
-#### Nginx 리버스 프록시 (선택사항)
-
-HTTPS와 도메인을 사용하려면:
+#### HTTPS 설정 (선택사항)
 
 ```bash
 sudo apt install -y nginx certbot python3-certbot-nginx
@@ -160,16 +424,10 @@ server {
     server_name vault.yourdomain.com;
 
     location / {
-        proxy_pass http://localhost:5173;
+        proxy_pass http://localhost;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-    }
-
-    location /api {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }
@@ -185,172 +443,117 @@ sudo systemctl restart nginx
 
 ---
 
-### macOS 설치
+### macOS / Windows
 
 <details>
 <summary>클릭하여 펼치기</summary>
 
-#### 방법 1: Docker Desktop 사용 (권장)
+#### Docker Desktop 사용 (권장)
+
+1. **Docker Desktop 설치**
+   - https://www.docker.com/products/docker-desktop 에서 다운로드
+
+2. **터미널에서 설치 스크립트 실행**
 
 ```bash
-# 1. Docker Desktop 설치
-# https://www.docker.com/products/docker-desktop 에서 다운로드
-
-# 2. 저장소 클론
-git clone https://github.com/YOUR_USERNAME/secret-vault.git
+curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/install.sh | bash
 cd secret-vault
+docker-compose up -d
+```
 
-# 3. 환경 변수 설정
-cp .env.example .env
+3. **접속**: http://localhost
 
-# 키 생성
-openssl rand -hex 32  # 3번 실행하여 각각 복사
+#### Windows PowerShell (curl 없는 경우)
 
-# .env 파일 편집
-nano .env
+```powershell
+# 1. 디렉토리 생성
+mkdir secret-vault; cd secret-vault
+
+# 2. 파일 다운로드
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/datamaker/secret-vault/main/install/docker-compose.yml" -OutFile "docker-compose.yml"
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/datamaker/secret-vault/main/install/init.sql" -OutFile "init.sql"
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/datamaker/secret-vault/main/install/.env.example" -OutFile ".env"
+
+# 3. .env 파일 편집 (메모장으로 열어서 키 생성 후 입력)
+notepad .env
 
 # 4. 실행
 docker-compose up -d
-
-# 5. 접속: http://localhost:5173
-```
-
-#### 방법 2: 로컬 개발 환경
-
-```bash
-# 1. Homebrew로 필수 도구 설치
-brew install node@20 postgresql@16
-
-# PostgreSQL 시작
-brew services start postgresql@16
-
-# 2. 저장소 클론
-git clone https://github.com/YOUR_USERNAME/secret-vault.git
-cd secret-vault
-
-# 3. 데이터베이스 생성
-createdb secret_vault
-
-# 스키마 적용
-psql -d secret_vault -f database/migrations/001_initial_schema.sql
-psql -d secret_vault -f database/migrations/002_team_invitations.sql
-
-# 4. 의존성 설치
-npm install
-
-# 5. 환경 변수 설정
-cp apps/backend/.env.example apps/backend/.env
-nano apps/backend/.env
-
-# DATABASE_URL=postgres://YOUR_USERNAME@localhost:5432/secret_vault
-# 나머지 키 생성: openssl rand -hex 32
-
-# 6. 빌드 및 실행
-npm run build
-
-# 터미널 1: 백엔드
-npm run dev:backend
-
-# 터미널 2: 프론트엔드
-npm run dev:frontend
-
-# 7. 접속: http://localhost:5174
-```
-
-#### CLI 설치
-
-```bash
-cd apps/cli
-npm link
-
-# 이제 어디서든 사용 가능
-vault --help
 ```
 
 </details>
 
 ---
 
-### Windows 설치
+### 소스에서 빌드 (개발자용)
 
 <details>
 <summary>클릭하여 펼치기</summary>
 
-#### 방법 1: Docker Desktop 사용 (권장)
-
-1. **Docker Desktop 설치**
-   - https://www.docker.com/products/docker-desktop 에서 다운로드
-   - WSL2 백엔드 사용 권장
-
-2. **Git Bash 또는 WSL 터미널 열기**
-
 ```bash
-# 저장소 클론
-git clone https://github.com/YOUR_USERNAME/secret-vault.git
+# 1. 저장소 클론
+git clone https://github.com/datamaker/secret-vault.git
 cd secret-vault
 
-# 환경 변수 설정
-cp .env.example .env
-
-# PowerShell에서 키 생성 (Git Bash 없는 경우)
-# [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes(32) | ForEach-Object { '{0:x2}' -f $_ } | Join-String
-
-# .env 파일 편집 (메모장 또는 VS Code)
-notepad .env
-
-# Docker Compose 실행
-docker-compose up -d
-
-# 접속: http://localhost:5173
-```
-
-#### 방법 2: WSL2 + Ubuntu
-
-```bash
-# 1. WSL2 설치 (PowerShell 관리자 모드)
-wsl --install
-
-# 2. Ubuntu 터미널에서 Docker 설치
-sudo apt update
-sudo apt install -y docker.io docker-compose
-sudo service docker start
-
-# 3. 이후 Linux 설치 가이드와 동일
-```
-
-#### 방법 3: 로컬 개발 환경
-
-1. **필수 프로그램 설치**
-   - Node.js 20+: https://nodejs.org
-   - PostgreSQL 16: https://www.postgresql.org/download/windows/
-   - Git: https://git-scm.com/download/win
-
-2. **PowerShell에서 실행**
-
-```powershell
-# 저장소 클론
-git clone https://github.com/YOUR_USERNAME/secret-vault.git
-cd secret-vault
-
-# 의존성 설치
+# 2. 의존성 설치
 npm install
 
-# 환경 변수 설정
-copy apps\backend\.env.example apps\backend\.env
-notepad apps\backend\.env
+# 3. 환경 변수 설정
+cp .env.example .env
+# .env 파일 편집하여 키 생성
 
-# 데이터베이스 생성 (pgAdmin 또는 psql)
-# CREATE DATABASE secret_vault;
+# 4. 개발 서버 실행
+npm run dev:backend   # 터미널 1
+npm run dev:frontend  # 터미널 2
 
-# 스키마 적용
-psql -U postgres -d secret_vault -f database\migrations\001_initial_schema.sql
+# 5. 접속
+# - 웹 UI: http://localhost:5174
+# - API: http://localhost:3000
+```
 
-# 빌드
-npm run build
+</details>
 
-# 실행 (별도 터미널)
-npm run dev:backend
-npm run dev:frontend
+---
+
+### Kubernetes (Helm)
+
+<details>
+<summary>클릭하여 펼치기</summary>
+
+```bash
+# 준비 중...
+# Helm 차트는 향후 제공될 예정입니다.
+```
+
+</details>
+
+---
+
+### 중요: 백업
+
+⚠️ **MASTER_ENCRYPTION_KEY를 반드시 백업하세요!**
+
+이 키가 없으면 저장된 시크릿을 복호화할 수 없습니다.
+
+```bash
+# .env 파일 백업
+cp .env .env.backup
+
+# 안전한 곳에 보관
+cat .env | grep MASTER_ENCRYPTION_KEY
+```
+
+---
+
+### 삭제
+
+```bash
+# 서비스 중지 및 삭제
+docker-compose down
+
+# 데이터 포함 완전 삭제
+docker-compose down -v
+rm -rf secret-vault
 ```
 
 </details>
@@ -366,8 +569,8 @@ npm run dev:frontend
 cd apps/cli
 npm link
 
-# 또는 npm 글로벌 설치 (배포 후)
-npm install -g @secret-vault/cli
+# 또는 npm 글로벌 설치
+npm install -g @datasee/vault
 ```
 
 ### 명령어
@@ -547,11 +750,3 @@ npm run build:cli
 ## 라이선스
 
 MIT License - 자유롭게 사용, 수정, 배포할 수 있습니다.
-
----
-
-## 관련 프로젝트
-
-- [Doppler](https://www.doppler.com/) - 상용 시크릿 관리 서비스
-- [Infisical](https://infisical.com/) - 오픈소스 시크릿 관리
-- [Vault](https://www.vaultproject.io/) - HashiCorp의 시크릿 관리 도구

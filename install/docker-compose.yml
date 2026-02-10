@@ -1,0 +1,76 @@
+# Secret Vault - Docker Hub Installation
+# https://github.com/datamaker/secret-vault
+#
+# Quick Start:
+#   1. Download this file and .env.example
+#   2. Copy .env.example to .env and configure
+#   3. docker-compose up -d
+#
+# 빠른 시작:
+#   1. 이 파일과 .env.example 다운로드
+#   2. .env.example을 .env로 복사하고 설정
+#   3. docker-compose up -d
+
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: secret-vault-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: secret_vault
+      POSTGRES_USER: vault
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vault -d secret_vault"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vault-network
+
+  backend:
+    image: datamaker/secret-vault-backend:latest
+    container_name: secret-vault-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgres://vault:${POSTGRES_PASSWORD}@db:5432/secret_vault
+      MASTER_ENCRYPTION_KEY: ${MASTER_ENCRYPTION_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - vault-network
+
+  frontend:
+    image: datamaker/secret-vault-frontend:latest
+    container_name: secret-vault-web
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${PORT:-80}:80"
+    networks:
+      - vault-network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  vault-network:
+    driver: bridge
