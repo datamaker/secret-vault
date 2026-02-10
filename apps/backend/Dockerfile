@@ -36,6 +36,10 @@ COPY --from=builder /app/apps/backend/dist ./dist
 COPY --from=builder /app/apps/backend/package.json ./
 COPY --from=builder /app/node_modules ./node_modules
 
+# Copy shared package (workspace symlink doesn't work in production)
+COPY --from=builder /app/packages/shared/dist ./node_modules/@secret-vault/shared/dist
+COPY --from=builder /app/packages/shared/package.json ./node_modules/@secret-vault/shared/
+
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 expressjs
