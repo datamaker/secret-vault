@@ -5,15 +5,17 @@ import { Plus, Eye, EyeOff, Trash2, ArrowLeft, Download, Upload, Copy } from 'lu
 import toast from 'react-hot-toast';
 import { Layout } from '../components/layout/Layout';
 import { getProject, getEnvironments, Environment } from '../api/projects';
-import { getSecrets, createSecret, deleteSecret, exportSecrets, Secret } from '../api/secrets';
+import { getSecrets, createSecret, deleteSecret, exportSecrets, importSecrets, Secret } from '../api/secrets';
 
 export function Secrets() {
   const { projectId } = useParams<{ projectId: string }>();
   const queryClient = useQueryClient();
   const [selectedEnv, setSelectedEnv] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [showValues, setShowValues] = useState<Record<string, boolean>>({});
   const [newSecret, setNewSecret] = useState({ key: '', value: '', description: '' });
+  const [importContent, setImportContent] = useState('');
 
   const { data: project } = useQuery({
     queryKey: ['project', projectId],
@@ -64,6 +66,20 @@ export function Secrets() {
     },
   });
 
+  const importMutation = useMutation({
+    mutationFn: (content: string) => importSecrets(selectedEnv!, content),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['secrets', selectedEnv] });
+      setShowImportModal(false);
+      setImportContent('');
+      toast.success(`${data.imported} secrets imported successfully`);
+    },
+    onError: (error: unknown) => {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'Failed to import secrets');
+    },
+  });
+
   const handleExport = async () => {
     if (!selectedEnv) return;
     try {
@@ -89,6 +105,26 @@ export function Secrets() {
   const handleCreateSecret = (e: React.FormEvent) => {
     e.preventDefault();
     createSecretMutation.mutate();
+  };
+
+  const handleImport = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!importContent.trim()) {
+      toast.error('Please paste your .env content');
+      return;
+    }
+    importMutation.mutate(importContent);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setImportContent(event.target?.result as string);
+      };
+      reader.readAsText(file);
+    }
   };
 
   const currentEnv = environments?.find((e: Environment) => e.id === selectedEnv);
@@ -139,7 +175,7 @@ export function Secrets() {
               <Download className="w-4 h-4" />
               Export
             </button>
-            <button className="btn btn-secondary flex items-center gap-2">
+            <button onClick={() => setShowImportModal(true)} className="btn btn-secondary flex items-center gap-2">
               <Upload className="w-4 h-4" />
               Import
             </button>
@@ -272,6 +308,64 @@ export function Secrets() {
                     disabled={createSecretMutation.isPending}
                   >
                     {createSecretMutation.isPending ? 'Creating...' : 'Create'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Import Secrets Modal */}
+        {showImportModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-lg">
+              <h2 className="text-xl font-bold mb-4">Import Secrets</h2>
+              <form onSubmit={handleImport}>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Upload .env file or paste content
+                  </label>
+                  <input
+                    type="file"
+                    accept=".env,.txt"
+                    onChange={handleFileUpload}
+                    className="block w-full text-sm text-gray-500 mb-2
+                      file:mr-4 file:py-2 file:px-4
+                      file:rounded file:border-0
+                      file:text-sm file:font-medium
+                      file:bg-primary-50 file:text-primary-700
+                      hover:file:bg-primary-100"
+                  />
+                  <textarea
+                    className="input font-mono text-sm"
+                    rows={10}
+                    value={importContent}
+                    onChange={(e) => setImportContent(e.target.value)}
+                    placeholder="KEY=value
+DATABASE_URL=postgres://...
+API_KEY=sk-..."
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Supports standard .env format. Existing keys will be updated.
+                  </p>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      setShowImportModal(false);
+                      setImportContent('');
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={importMutation.isPending || !importContent.trim()}
+                  >
+                    {importMutation.isPending ? 'Importing...' : 'Import'}
                   </button>
                 </div>
               </form>

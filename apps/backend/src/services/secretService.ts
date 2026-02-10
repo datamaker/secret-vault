@@ -280,14 +280,28 @@ export const importFromEnv = async (
   let imported = 0;
 
   for (const line of lines) {
-    const match = line.match(/^([A-Z][A-Z0-9_]*)=(.*)$/);
+    // Support KEY=value format (key can be lowercase or uppercase)
+    const match = line.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
     if (match) {
-      const [, key, value] = match;
+      const [, rawKey, value] = match;
+      const key = rawKey.toUpperCase();
       try {
-        await createSecret(environmentId, projectId, key, value, undefined, true, userId);
+        // Check if key exists
+        const existing = await query(
+          'SELECT id FROM secrets WHERE environment_id = $1 AND key = $2',
+          [environmentId, key]
+        );
+
+        if (existing.rows.length > 0) {
+          // Update existing secret
+          await updateSecret(environmentId, projectId, key, value, undefined, undefined, userId);
+        } else {
+          // Create new secret
+          await createSecret(environmentId, projectId, key, value, undefined, true, userId);
+        }
         imported++;
       } catch {
-        // Skip if already exists
+        // Skip on error
       }
     }
   }
