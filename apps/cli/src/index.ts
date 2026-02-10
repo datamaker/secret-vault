@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { loginCommand } from './commands/login';
 import { setupCommand } from './commands/setup';
 import { runCommand } from './commands/run';
@@ -12,12 +14,16 @@ import {
 } from './commands/secrets';
 import { exportCommand } from './commands/export';
 
+const packageJson = JSON.parse(
+  readFileSync(join(__dirname, '..', 'package.json'), 'utf-8')
+);
+
 const program = new Command();
 
 program
   .name('vault')
   .description('Secret Vault CLI - Securely manage your secrets')
-  .version('1.0.0');
+  .version(packageJson.version);
 
 // Login command
 program

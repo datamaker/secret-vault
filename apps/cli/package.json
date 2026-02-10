@@ -1,6 +1,6 @@
 {
   "name": "@datasee/vault",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Secret Vault CLI - Doppler alternative for managing secrets from command line",
   "keywords": [
     "secrets",
