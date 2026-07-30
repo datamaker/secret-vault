@@ -55,6 +55,63 @@ export const requireTeamRole = (...allowedRoles: TeamRole[]) => {
   };
 };
 
+// 시크릿 읽기 라우트용: API 토큰이면 스코프(팀/프로젝트/환경)와 read 권한을 검증하고,
+// JWT 사용자면 기존 동작 그대로 통과시킨다.
+export const allowScopedApiTokenRead = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  if (!req.apiToken) {
+    next();
+    return;
+  }
+
+  const { envId } = req.params;
+
+  if (!req.apiToken.permissions.includes('read')) {
+    res.status(403).json({ error: 'Forbidden', message: 'API token does not have read permission' });
+    return;
+  }
+
+  if (!envId) {
+    res.status(400).json({ error: 'Bad Request', message: 'Environment ID is required' });
+    return;
+  }
+
+  if (req.apiToken.environmentId && req.apiToken.environmentId !== envId) {
+    res.status(403).json({ error: 'Forbidden', message: 'API token is not scoped to this environment' });
+    return;
+  }
+
+  try {
+    const result = await query(
+      `SELECT e.project_id, p.team_id FROM environments e
+       JOIN projects p ON p.id = e.project_id
+       WHERE e.id = $1`,
+      [envId]
+    );
+
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'Not Found', message: 'Environment not found' });
+      return;
+    }
+
+    const { project_id: envProjectId, team_id: envTeamId } = result.rows[0];
+
+    // 프로젝트 스코프 토큰: 해당 프로젝트만. 팀 스코프 토큰: 팀 내 모든 프로젝트.
+    const inScope = req.apiToken.projectId
+      ? req.apiToken.projectId === envProjectId
+      : req.apiToken.teamId === envTeamId;
+
+    if (!inScope) {
+      res.status(403).json({ error: 'Forbidden', message: 'API token is not scoped to this environment' });
+      return;
+    }
+
+    next();
+  } catch (error) {
+    console.error('API token scope check error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
 export const requireProjectPermission = (...allowedPermissions: ProjectPermission[]) => {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const { projectId, envId } = req.params;

@@ -65,3 +65,4 @@ docker-compose.override.yml
 # package-lock.json
 # yarn.lock
 # pnpm-lock.yaml
+vault-secret-fetcher.zip
