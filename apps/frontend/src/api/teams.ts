@@ -49,6 +49,10 @@ export const addTeamMember = async (teamId: string, email: string, role: string)
   return data;
 };
 
+export const updateTeamMember = async (teamId: string, userId: string, role: string): Promise<void> => {
+  await api.put(`/teams/${teamId}/members/${userId}`, { role });
+};
+
 export const removeTeamMember = async (teamId: string, userId: string): Promise<void> => {
   await api.delete(`/teams/${teamId}/members/${userId}`);
 };

@@ -70,3 +70,34 @@ export const importSecrets = async (envId: string, content: string): Promise<{ i
   const { data } = await api.post<{ imported: number }>(`/environments/${envId}/secrets/import`, { content });
   return data;
 };
+
+export interface SecretHistoryEntry {
+  id: string;
+  secretId: string;
+  version: number;
+  value?: string;
+  changedBy?: string;
+  changedByName?: string;
+  changedAt: string;
+}
+
+export const getSecretHistory = async (secretId: string): Promise<SecretHistoryEntry[]> => {
+  const { data } = await api.get<SecretHistoryEntry[]>(`/secrets/${secretId}/history`);
+  return data;
+};
+
+export interface DeletedSecret {
+  id: string;
+  environmentId: string;
+  key: string;
+  value: string;
+  version: number;
+  deletedBy: string | null;
+  deletedByName: string | null;
+  deletedAt: string;
+}
+
+export const getDeletedSecrets = async (envId: string): Promise<DeletedSecret[]> => {
+  const { data } = await api.get<DeletedSecret[]>(`/environments/${envId}/secrets/deleted`);
+  return data;
+};

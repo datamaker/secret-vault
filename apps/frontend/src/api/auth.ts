@@ -27,6 +27,10 @@ export const logout = async (): Promise<void> => {
   await api.post('/auth/logout');
 };
 
+export const changePassword = async (currentPassword: string, newPassword: string): Promise<void> => {
+  await api.put('/auth/password', { currentPassword, newPassword });
+};
+
 export const getMe = async (): Promise<{ user: User }> => {
   const { data } = await api.get<{ user: User }>('/auth/me');
   return data;

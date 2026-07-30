@@ -88,6 +88,25 @@ export const refresh = async (req: Request, res: Response, next: NextFunction): 
   }
 };
 
+export const changePassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      throw new AppError('Current password and new password are required', 400);
+    }
+
+    if (newPassword.length < 8) {
+      throw new AppError('New password must be at least 8 characters', 400);
+    }
+
+    await authService.changePassword(req.user!.userId, currentPassword, newPassword);
+    res.json({ message: 'Password changed successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const me = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     if (!req.user) {

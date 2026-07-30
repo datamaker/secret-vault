@@ -66,7 +66,9 @@ export interface SecretHistory {
   id: string;
   secretId: string;
   version: number;
+  value?: string;
   changedBy?: string;
+  changedByName?: string;
   changedAt: Date;
 }
 

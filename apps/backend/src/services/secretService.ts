@@ -1,6 +1,7 @@
 import { query, getClient } from '../config/database';
 import { Secret, SecretHistory } from '@secret-vault/shared';
 import { encryptionService } from './encryptionService';
+import { logSecretActivity } from './auditService';
 import { AppError } from '../middleware/errorHandler';
 
 export const createSecret = async (
@@ -35,6 +36,8 @@ export const createSecret = async (
      RETURNING id, environment_id, key, description, is_sensitive, version, created_by, created_at, updated_at`,
     [environmentId, key, encrypted.encryptedValue, encrypted.iv, encrypted.authTag, description, isSensitive, userId]
   );
+
+  await logSecretActivity(environmentId, 'secret.created', key, userId);
 
   const row = result.rows[0];
   return {
@@ -206,6 +209,8 @@ export const updateSecret = async (
 
     await client.query('COMMIT');
 
+    await logSecretActivity(environmentId, 'secret.updated', key, userId);
+
     const row = result.rows[0];
     return {
       id: row.id,
@@ -234,22 +239,101 @@ export const updateSecret = async (
   }
 };
 
-export const deleteSecret = async (environmentId: string, key: string): Promise<void> => {
+export const deleteSecret = async (
+  environmentId: string,
+  key: string,
+  userId?: string
+): Promise<void> => {
+  const client = await getClient();
+
+  try {
+    await client.query('BEGIN');
+
+    const current = await client.query(
+      `SELECT id, encrypted_value, iv, auth_tag, version
+       FROM secrets WHERE environment_id = $1 AND key = $2`,
+      [environmentId, key]
+    );
+
+    if (current.rows.length === 0) {
+      throw new AppError('Secret not found', 404);
+    }
+
+    // 삭제 후에도 마지막 값을 볼 수 있도록 보관함에 남긴다
+    const row = current.rows[0];
+    await client.query(
+      `INSERT INTO deleted_secrets (environment_id, key, encrypted_value, iv, auth_tag, version, deleted_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [environmentId, key, row.encrypted_value, row.iv, row.auth_tag, row.version, userId ?? null]
+    );
+
+    await client.query('DELETE FROM secrets WHERE id = $1', [row.id]);
+
+    await client.query('COMMIT');
+
+    await logSecretActivity(environmentId, 'secret.deleted', key, userId);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+export interface DeletedSecret {
+  id: string;
+  environmentId: string;
+  key: string;
+  value: string;
+  version: number;
+  deletedBy: string | null;
+  deletedByName: string | null;
+  deletedAt: Date;
+}
+
+export const getDeletedSecrets = async (
+  environmentId: string,
+  projectId: string
+): Promise<DeletedSecret[]> => {
   const result = await query(
-    'DELETE FROM secrets WHERE environment_id = $1 AND key = $2',
-    [environmentId, key]
+    `SELECT d.id, d.environment_id, d.key, d.encrypted_value, d.iv, d.auth_tag,
+            d.version, d.deleted_by, d.deleted_at, u.name AS deleted_by_name
+     FROM deleted_secrets d
+     LEFT JOIN users u ON u.id = d.deleted_by
+     WHERE d.environment_id = $1
+     ORDER BY d.deleted_at DESC`,
+    [environmentId]
   );
 
-  if (result.rowCount === 0) {
-    throw new AppError('Secret not found', 404);
-  }
+  return result.rows.map(row => ({
+    id: row.id,
+    environmentId: row.environment_id,
+    key: row.key,
+    value: encryptionService.decrypt(
+      {
+        encryptedValue: row.encrypted_value,
+        iv: row.iv,
+        authTag: row.auth_tag,
+      },
+      projectId
+    ),
+    version: row.version,
+    deletedBy: row.deleted_by,
+    deletedByName: row.deleted_by_name,
+    deletedAt: row.deleted_at,
+  }));
 };
 
 export const getSecretHistory = async (secretId: string): Promise<SecretHistory[]> => {
   const result = await query(
-    `SELECT id, secret_id, version, changed_by, changed_at
-     FROM secret_history WHERE secret_id = $1
-     ORDER BY version DESC`,
+    `SELECT h.id, h.secret_id, h.encrypted_value, h.iv, h.auth_tag, h.version, h.changed_by, h.changed_at,
+            u.name AS changed_by_name, e.project_id
+     FROM secret_history h
+     JOIN secrets s ON s.id = h.secret_id
+     JOIN environments e ON e.id = s.environment_id
+     LEFT JOIN users u ON u.id = h.changed_by
+     WHERE h.secret_id = $1
+     ORDER BY h.version DESC`,
     [secretId]
   );
 
@@ -257,7 +341,16 @@ export const getSecretHistory = async (secretId: string): Promise<SecretHistory[
     id: row.id,
     secretId: row.secret_id,
     version: row.version,
+    value: encryptionService.decrypt(
+      {
+        encryptedValue: row.encrypted_value,
+        iv: row.iv,
+        authTag: row.auth_tag,
+      },
+      row.project_id
+    ),
     changedBy: row.changed_by,
+    changedByName: row.changed_by_name,
     changedAt: row.changed_at,
   }));
 };
@@ -270,39 +363,59 @@ export const exportAsEnv = async (environmentId: string, projectId: string): Pro
     .join('\n');
 };
 
+// KEY=value 형식과, AWS Lambda 콘솔에서 복사한 "키 줄 + 값 줄" 교차 형식을 모두 파싱한다.
+export const parseEnvContent = (content: string): Array<[string, string]> => {
+  const lines = content
+    .split('\n')
+    .map(line => line.replace(/\r$/, '').trim())
+    .filter(line => line && !line.startsWith('#'));
+
+  const entries: Array<[string, string]> = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const kv = lines[i].match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+    if (kv) {
+      entries.push([kv[1], kv[2]]);
+      continue;
+    }
+
+    // 키만 있는 줄: 다음 줄을 값으로 사용 (Lambda 콘솔 복사-붙여넣기 형식)
+    if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(lines[i]) && i + 1 < lines.length) {
+      entries.push([lines[i], lines[i + 1]]);
+      i++;
+    }
+  }
+
+  return entries;
+};
+
 export const importFromEnv = async (
   environmentId: string,
   projectId: string,
   content: string,
   userId: string
 ): Promise<number> => {
-  const lines = content.split('\n').filter(line => line.trim() && !line.startsWith('#'));
   let imported = 0;
 
-  for (const line of lines) {
-    // Support KEY=value format (key can be lowercase or uppercase)
-    const match = line.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
-    if (match) {
-      const [, rawKey, value] = match;
-      const key = rawKey.toUpperCase();
-      try {
-        // Check if key exists
-        const existing = await query(
-          'SELECT id FROM secrets WHERE environment_id = $1 AND key = $2',
-          [environmentId, key]
-        );
+  for (const [rawKey, value] of parseEnvContent(content)) {
+    const key = rawKey.toUpperCase();
+    try {
+      // Check if key exists
+      const existing = await query(
+        'SELECT id FROM secrets WHERE environment_id = $1 AND key = $2',
+        [environmentId, key]
+      );
 
-        if (existing.rows.length > 0) {
-          // Update existing secret
-          await updateSecret(environmentId, projectId, key, value, undefined, undefined, userId);
-        } else {
-          // Create new secret
-          await createSecret(environmentId, projectId, key, value, undefined, true, userId);
-        }
-        imported++;
-      } catch {
-        // Skip on error
+      if (existing.rows.length > 0) {
+        // Update existing secret
+        await updateSecret(environmentId, projectId, key, value, undefined, undefined, userId);
+      } else {
+        // Create new secret
+        await createSecret(environmentId, projectId, key, value, undefined, true, userId);
       }
+      imported++;
+    } catch {
+      // Skip on error
     }
   }
 

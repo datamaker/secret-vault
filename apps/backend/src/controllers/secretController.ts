@@ -97,8 +97,18 @@ export const updateSecret = async (req: Request, res: Response, next: NextFuncti
 
 export const deleteSecret = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    await secretService.deleteSecret(req.params.envId, req.params.key);
+    await secretService.deleteSecret(req.params.envId, req.params.key, req.user?.userId);
     res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getDeletedSecrets = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const projectId = await getProjectIdFromEnv(req.params.envId);
+    const deleted = await secretService.getDeletedSecrets(req.params.envId, projectId);
+    res.json(deleted);
   } catch (error) {
     next(error);
   }
