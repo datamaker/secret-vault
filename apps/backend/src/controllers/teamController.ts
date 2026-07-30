@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import * as teamService from '../services/teamService';
+import * as auditService from '../services/auditService';
 import { AppError } from '../middleware/errorHandler';
 import { TeamMember } from '@secret-vault/shared';
 
@@ -84,6 +85,15 @@ export const addMember = async (req: Request, res: Response, next: NextFunction)
 
     // Check if it's an invitation or a member
     const isInvitation = 'expiresAt' in result;
+
+    await auditService.logActivity({
+      userId: req.user!.userId,
+      teamId: req.params.teamId,
+      action: 'team.member_added',
+      resourceType: isInvitation ? 'invitation' : 'member',
+      details: { email, role: role || 'member', invited: isInvitation },
+    });
+
     res.status(201).json({
       ...result,
       type: isInvitation ? 'invitation' : 'member',
@@ -102,6 +112,16 @@ export const updateMember = async (req: Request, res: Response, next: NextFuncti
     }
 
     await teamService.updateTeamMemberRole(req.params.teamId, req.params.userId, role);
+
+    await auditService.logActivity({
+      userId: req.user!.userId,
+      teamId: req.params.teamId,
+      action: 'team.member_role_changed',
+      resourceType: 'member',
+      resourceId: req.params.userId,
+      details: { role },
+    });
+
     res.json({ message: 'Member role updated' });
   } catch (error) {
     next(error);
@@ -111,7 +131,27 @@ export const updateMember = async (req: Request, res: Response, next: NextFuncti
 export const removeMember = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     await teamService.removeTeamMember(req.params.teamId, req.params.userId);
+
+    await auditService.logActivity({
+      userId: req.user!.userId,
+      teamId: req.params.teamId,
+      action: 'team.member_removed',
+      resourceType: 'member',
+      resourceId: req.params.userId,
+    });
+
     res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getActivity = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 50, 200);
+    const offset = Number(req.query.offset) || 0;
+    const activity = await auditService.getTeamActivity(req.params.teamId, limit, offset);
+    res.json(activity);
   } catch (error) {
     next(error);
   }

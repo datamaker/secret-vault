@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import * as projectService from '../services/projectService';
+import { logActivity } from '../services/auditService';
 import { AppError } from '../middleware/errorHandler';
 
 export const createProject = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -16,6 +17,16 @@ export const createProject = async (req: Request, res: Response, next: NextFunct
       description,
       req.user!.userId
     );
+
+    await logActivity({
+      userId: req.user!.userId,
+      teamId: req.params.teamId,
+      projectId: project.id,
+      action: 'project.created',
+      resourceType: 'project',
+      details: { project: project.name },
+    });
+
     res.status(201).json(project);
   } catch (error) {
     next(error);
@@ -55,7 +66,19 @@ export const updateProject = async (req: Request, res: Response, next: NextFunct
 
 export const deleteProject = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const project = await projectService.getProjectById(req.params.projectId);
     await projectService.deleteProject(req.params.projectId);
+
+    if (project) {
+      await logActivity({
+        userId: req.user?.userId,
+        teamId: project.teamId,
+        action: 'project.deleted',
+        resourceType: 'project',
+        details: { project: project.name },
+      });
+    }
+
     res.status(204).send();
   } catch (error) {
     next(error);
