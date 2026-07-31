@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Eye, EyeOff, Trash2, ArrowLeft, Download, Upload, Copy, Pencil, History, RotateCcw, Archive } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { copyText } from '../lib/clipboard';
 import { Layout } from '../components/layout/Layout';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { getProject, getEnvironments, deleteProject, Environment } from '../api/projects';
@@ -42,6 +43,24 @@ export function Secrets() {
   const [editDescription, setEditDescription] = useState('');
   const [historyTarget, setHistoryTarget] = useState<Secret | null>(null);
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
+  // 생성/임포트 후 "다른 환경에도 적용할까요?" 프롬프트 상태
+  const [forkPrompt, setForkPrompt] = useState<
+    | { type: 'create'; secret: { key: string; value: string; description: string } }
+    | { type: 'import'; content: string }
+    | null
+  >(null);
+  const [forkTargets, setForkTargets] = useState<Record<string, boolean>>({});
+
+  const openForkPrompt = (prompt: NonNullable<typeof forkPrompt>) => {
+    const others = (environments ?? []).filter((e: Environment) => e.id !== selectedEnv);
+    if (others.length === 0) return;
+    const defaults: Record<string, boolean> = {};
+    others.forEach((e: Environment) => {
+      defaults[e.id] = true;
+    });
+    setForkTargets(defaults);
+    setForkPrompt(prompt);
+  };
 
   const { data: project } = useQuery({
     queryKey: ['project', projectId],
@@ -79,39 +98,19 @@ export function Secrets() {
     enabled: !!selectedEnv && showDeletedModal,
   });
 
-  // 시크릿 생성은 항상 모든 환경(dev/staging/prod)에 반영된다
+  // 생성은 선택된 환경에만 적용하고, 성공 후 다른 환경 반영 여부를 물어본다 (도플러 방식)
   const createSecretMutation = useMutation({
-    mutationFn: async () => {
-      let created = 0;
-      const failed: string[] = [];
-      let firstError = '';
-      for (const env of environments ?? []) {
-        try {
-          await createSecret(env.id, newSecret.key, newSecret.value, newSecret.description);
-          created++;
-        } catch (error) {
-          const err = error as { response?: { data?: { message?: string } } };
-          if (!firstError) firstError = err.response?.data?.message || '';
-          failed.push(env.name);
-        }
-      }
-      return { created, failed, firstError };
+    mutationFn: () => createSecret(selectedEnv!, newSecret.key, newSecret.value, newSecret.description),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['secrets', selectedEnv] });
+      setShowCreateModal(false);
+      toast.success(`Secret created in ${currentEnv?.name}`);
+      openForkPrompt({ type: 'create', secret: { ...newSecret } });
+      setNewSecret({ key: '', value: '', description: '' });
     },
-    onSuccess: ({ created, failed, firstError }) => {
-      queryClient.invalidateQueries({ queryKey: ['secrets'] });
-      if (created > 0) {
-        setShowCreateModal(false);
-        setNewSecret({ key: '', value: '', description: '' });
-      }
-      if (failed.length > 0) {
-        toast.error(
-          firstError
-            ? `${firstError} (failed in ${failed.join(', ')})`
-            : `Failed in ${failed.join(', ')}`
-        );
-      } else {
-        toast.success(`Secret created in all ${created} environments`);
-      }
+    onError: (error: unknown) => {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'Failed to create secret');
     },
   });
 
@@ -180,25 +179,54 @@ export function Secrets() {
     },
   });
 
-  // 임포트도 항상 모든 환경에 반영된다
+  // 임포트도 선택된 환경에만 적용하고, 성공 후 다른 환경 반영 여부를 물어본다
   const importMutation = useMutation({
-    mutationFn: async (content: string) => {
-      let total = 0;
-      for (const env of environments ?? []) {
-        const result = await importSecrets(env.id, content);
-        total += result.imported;
-      }
-      return { total, envCount: environments?.length ?? 0 };
-    },
-    onSuccess: ({ total, envCount }) => {
-      queryClient.invalidateQueries({ queryKey: ['secrets'] });
+    mutationFn: (content: string) => importSecrets(selectedEnv!, content),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['secrets', selectedEnv] });
       setShowImportModal(false);
+      toast.success(`${data.imported} secrets imported into ${currentEnv?.name}`);
+      openForkPrompt({ type: 'import', content: importContent });
       setImportContent('');
-      toast.success(`Imported into all ${envCount} environments (${total} writes)`);
     },
     onError: (error: unknown) => {
       const err = error as { response?: { data?: { message?: string } } };
       toast.error(err.response?.data?.message || 'Failed to import secrets');
+    },
+  });
+
+  // 다른 환경에도 적용 (생성/임포트 성공 후 선택적으로 실행)
+  const forkMutation = useMutation({
+    mutationFn: async () => {
+      if (!forkPrompt) return { applied: 0, failed: [] as string[] };
+      const targets = (environments ?? []).filter(
+        (e: Environment) => e.id !== selectedEnv && forkTargets[e.id]
+      );
+      let applied = 0;
+      const failed: string[] = [];
+      for (const env of targets) {
+        try {
+          if (forkPrompt.type === 'import') {
+            await importSecrets(env.id, forkPrompt.content!);
+          } else {
+            const s = forkPrompt.secret!;
+            await createSecret(env.id, s.key, s.value, s.description);
+          }
+          applied++;
+        } catch {
+          failed.push(env.name);
+        }
+      }
+      return { applied, failed };
+    },
+    onSuccess: ({ applied, failed }) => {
+      queryClient.invalidateQueries({ queryKey: ['secrets'] });
+      setForkPrompt(null);
+      if (failed.length > 0) {
+        toast.error(`Applied to ${applied} environment(s); failed in ${failed.join(', ')} (key may already exist)`);
+      } else if (applied > 0) {
+        toast.success(`Applied to ${applied} other environment(s)`);
+      }
     },
   });
 
@@ -219,9 +247,8 @@ export function Secrets() {
     }
   };
 
-  const copyToClipboard = (value: string) => {
-    navigator.clipboard.writeText(value);
-    toast.success('Copied to clipboard');
+  const copyToClipboard = async (value: string) => {
+    (await copyText(value)) ? toast.success('Copied to clipboard') : toast.error('Copy failed');
   };
 
   const handleCreateSecret = (e: React.FormEvent) => {
@@ -467,7 +494,7 @@ export function Secrets() {
             <div className="bg-white rounded-lg p-6 w-full max-w-md">
               <h2 className="text-xl font-bold mb-1">Add New Secret</h2>
               <p className="text-sm text-gray-500 mb-4">
-                Added to all environments: {environments?.map((e: Environment) => e.name).join(', ')}
+                Added to <strong>{currentEnv?.name}</strong> — you can copy it to other environments after
               </p>
               <form onSubmit={handleCreateSecret}>
                 <div className="mb-4">
@@ -715,7 +742,7 @@ export function Secrets() {
             <div className="bg-white rounded-lg p-6 w-full max-w-lg">
               <h2 className="text-xl font-bold mb-1">Import Secrets</h2>
               <p className="text-sm text-gray-500 mb-4">
-                Imported into all environments: {environments?.map((e: Environment) => e.name).join(', ')}
+                Imported into <strong>{currentEnv?.name}</strong> — you can copy to other environments after
               </p>
               <form onSubmit={handleImport}>
                 <div className="mb-4">
@@ -770,6 +797,59 @@ https://sqs.ap-northeast-2.amazonaws.com/..."
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Apply to other environments? (도플러식 후속 선택) */}
+        {forkPrompt && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h2 className="text-xl font-bold mb-1">Apply to other environments?</h2>
+              <p className="text-sm text-gray-500 mb-4">
+                {forkPrompt.type === 'import'
+                  ? `The import was applied to ${currentEnv?.name}.`
+                  : `"${forkPrompt.secret.key}" was created in ${currentEnv?.name}.`}{' '}
+                Select environments to copy it to:
+              </p>
+              <div className="space-y-2 mb-6">
+                {(environments ?? [])
+                  .filter((e: Environment) => e.id !== selectedEnv)
+                  .map((env: Environment) => (
+                    <label key={env.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="rounded"
+                        checked={!!forkTargets[env.id]}
+                        onChange={(e) =>
+                          setForkTargets(prev => ({ ...prev, [env.id]: e.target.checked }))
+                        }
+                      />
+                      <span
+                        className="inline-block w-3 h-3 rounded-full"
+                        style={{ backgroundColor: env.color }}
+                      />
+                      {env.name}
+                    </label>
+                  ))}
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setForkPrompt(null)}
+                >
+                  Skip
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={forkMutation.isPending || !Object.values(forkTargets).some(Boolean)}
+                  onClick={() => forkMutation.mutate()}
+                >
+                  {forkMutation.isPending ? 'Applying...' : 'Apply'}
+                </button>
+              </div>
             </div>
           </div>
         )}

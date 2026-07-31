@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Eye, EyeOff, Copy, Pencil, Trash2, Globe, Fingerprint, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { copyText } from '../lib/clipboard';
 import { Layout } from '../components/layout/Layout';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useWorkspaceStore } from '../store/workspaceStore';
@@ -86,9 +87,8 @@ export function Credentials() {
     setShowModal(true);
   };
 
-  const copy = (value: string, label: string) => {
-    navigator.clipboard.writeText(value);
-    toast.success(`${label} copied`);
+  const copy = async (value: string, label: string) => {
+    (await copyText(value)) ? toast.success(`${label} copied`) : toast.error('Copy failed');
   };
 
   const handleSubmit = (e: React.FormEvent) => {

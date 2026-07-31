@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { KeyRound, Copy, AlertTriangle, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { copyText } from '../lib/clipboard';
 import { Layout } from '../components/layout/Layout';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useWorkspaceStore } from '../store/workspaceStore';
@@ -77,8 +78,7 @@ export function Tokens() {
 
   const handleCopyToken = async () => {
     if (!createdToken) return;
-    await navigator.clipboard.writeText(createdToken);
-    toast.success('Copied to clipboard');
+    (await copyText(createdToken)) ? toast.success('Copied to clipboard') : toast.error('Copy failed');
   };
 
   const projectNameById = new Map((projects ?? []).map((p: Project) => [p.id, p.name]));

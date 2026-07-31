@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Key, Eye, Copy, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { copyText } from '../lib/clipboard';
 import { decryptShare } from '../lib/shareCrypto';
 import { revealShareLink } from '../api/share';
 
@@ -39,8 +40,7 @@ export function ShareView() {
 
   const copySecret = async () => {
     if (!secret) return;
-    await navigator.clipboard.writeText(secret);
-    toast.success('Copied to clipboard');
+    (await copyText(secret)) ? toast.success('Copied to clipboard') : toast.error('Copy failed');
   };
 
   return (

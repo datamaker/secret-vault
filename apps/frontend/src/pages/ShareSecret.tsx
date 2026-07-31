@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Send, Copy, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { copyText } from '../lib/clipboard';
 import { Layout } from '../components/layout/Layout';
 import { encryptForShare } from '../lib/shareCrypto';
 import { createShareLink } from '../api/share';
@@ -39,8 +40,7 @@ export function ShareSecret() {
 
   const copyLink = async () => {
     if (!createdLink) return;
-    await navigator.clipboard.writeText(createdLink);
-    toast.success('Link copied to clipboard');
+    (await copyText(createdLink)) ? toast.success('Link copied to clipboard') : toast.error('Copy failed');
   };
 
   return (
