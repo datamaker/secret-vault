@@ -7,6 +7,7 @@ import { Activity } from './pages/Activity';
 import { TeamMembers } from './pages/TeamMembers';
 import { Tokens } from './pages/Tokens';
 import { Credentials } from './pages/Credentials';
+import { Integrations } from './pages/Integrations';
 import { Secrets } from './pages/Secrets';
 import { ShareSecret } from './pages/ShareSecret';
 import { ShareView } from './pages/ShareView';
@@ -31,6 +32,7 @@ export default function App() {
       <Route path="/team" element={<PrivateRoute><TeamMembers /></PrivateRoute>} />
       <Route path="/tokens" element={<PrivateRoute><Tokens /></PrivateRoute>} />
       <Route path="/credentials" element={<PrivateRoute><Credentials /></PrivateRoute>} />
+      <Route path="/integrations" element={<PrivateRoute><Integrations /></PrivateRoute>} />
       <Route path="/projects/:projectId" element={<PrivateRoute><Secrets /></PrivateRoute>} />
       <Route path="/share" element={<PrivateRoute><ShareSecret /></PrivateRoute>} />
       {/* 공유 링크 열람은 로그인 없이 접근 가능 */}

@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { LogOut, Key, Users, FolderOpen, Lock, ListOrdered, KeyRound, Plus, Send, ChevronDown, Fingerprint } from 'lucide-react';
+import { LogOut, Key, Users, FolderOpen, Lock, ListOrdered, KeyRound, Plus, Send, ChevronDown, Fingerprint, Cloud } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../../store/authStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
@@ -18,6 +18,7 @@ const navItems = [
   { to: '/team', label: 'Team', icon: Users },
   { to: '/credentials', label: 'Credentials', icon: Fingerprint },
   { to: '/tokens', label: 'Tokens', icon: KeyRound },
+  { to: '/integrations', label: 'Integrations', icon: Cloud },
   { to: '/share', label: 'Share Secret', icon: Send },
 ];
 

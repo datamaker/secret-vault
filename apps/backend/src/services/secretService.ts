@@ -2,7 +2,13 @@ import { query, getClient } from '../config/database';
 import { Secret, SecretHistory } from '@secret-vault/shared';
 import { encryptionService } from './encryptionService';
 import { logSecretActivity } from './auditService';
+import { syncEnvironmentIntegrations } from './integrationService';
 import { AppError } from '../middleware/errorHandler';
+
+// 시크릿 변경 후 연결된 인티그레이션으로 단방향 싱크 (실패해도 본 작업에 영향 없음)
+const triggerSync = (environmentId: string): void => {
+  void syncEnvironmentIntegrations(environmentId);
+};
 
 export const createSecret = async (
   environmentId: string,
@@ -38,6 +44,7 @@ export const createSecret = async (
   );
 
   await logSecretActivity(environmentId, 'secret.created', key, userId);
+  triggerSync(environmentId);
 
   const row = result.rows[0];
   return {
@@ -210,6 +217,7 @@ export const updateSecret = async (
     await client.query('COMMIT');
 
     await logSecretActivity(environmentId, 'secret.updated', key, userId);
+    triggerSync(environmentId);
 
     const row = result.rows[0];
     return {
@@ -272,6 +280,7 @@ export const deleteSecret = async (
     await client.query('COMMIT');
 
     await logSecretActivity(environmentId, 'secret.deleted', key, userId);
+    triggerSync(environmentId);
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;

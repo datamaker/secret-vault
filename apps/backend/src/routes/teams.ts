@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as teamController from '../controllers/teamController';
 import * as apiTokenController from '../controllers/apiTokenController';
 import * as credentialController from '../controllers/credentialController';
+import * as integrationController from '../controllers/integrationController';
 import { authenticate } from '../middleware/auth';
 import { requireTeamRole } from '../middleware/rbac';
 
@@ -28,6 +29,12 @@ router.get('/:teamId/credentials', requireTeamRole('viewer', 'member', 'admin', 
 router.post('/:teamId/credentials', requireTeamRole('member', 'admin', 'owner'), credentialController.createCredential);
 router.put('/:teamId/credentials/:credentialId', requireTeamRole('member', 'admin', 'owner'), credentialController.updateCredential);
 router.delete('/:teamId/credentials/:credentialId', requireTeamRole('member', 'admin', 'owner'), credentialController.deleteCredential);
+
+// Integrations (one-way sync to CircleCI contexts — admin/owner only)
+router.get('/:teamId/integrations', requireTeamRole('admin', 'owner'), integrationController.getIntegrations);
+router.post('/:teamId/integrations', requireTeamRole('admin', 'owner'), integrationController.createIntegration);
+router.delete('/:teamId/integrations/:integrationId', requireTeamRole('admin', 'owner'), integrationController.deleteIntegration);
+router.post('/:teamId/integrations/:integrationId/sync', requireTeamRole('admin', 'owner'), integrationController.syncIntegration);
 
 // Activity feed (team-wide audit log)
 router.get('/:teamId/activity', requireTeamRole('viewer', 'member', 'admin', 'owner'), teamController.getActivity);
