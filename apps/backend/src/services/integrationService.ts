@@ -245,7 +245,13 @@ export const syncIntegration = async (
       action: 'integration.synced',
       resourceType: 'integration',
       resourceId: integrationId,
-      details: { name: row.name, synced, failed: failed.length },
+      // userId가 없으면 시크릿 변경으로 자동 실행된 싱크다 (수동 실행과 구분해 표시)
+      details: {
+        name: row.name,
+        synced,
+        failed: failed.length,
+        trigger: userId ? 'manual' : 'auto',
+      },
     });
 
     return { synced, failed };

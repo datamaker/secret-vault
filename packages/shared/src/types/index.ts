@@ -34,6 +34,8 @@ export interface Project {
   name: string;
   slug: string;
   description?: string;
+  environmentCount?: number;
+  secretCount?: number;
   createdBy?: string;
   createdAt: Date;
   updatedAt: Date;

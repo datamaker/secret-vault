@@ -25,9 +25,10 @@ export const ProjectPermissionHierarchy: Record<string, number> = {
 };
 
 export const DefaultEnvironments = [
-  { name: 'Development', slug: 'development', color: '#22c55e', orderIndex: 0 },
-  { name: 'Staging', slug: 'staging', color: '#f59e0b', orderIndex: 1 },
-  { name: 'Production', slug: 'production', color: '#ef4444', orderIndex: 2 },
+  { name: 'Local', slug: 'local', color: '#64748b', orderIndex: 0 },
+  { name: 'Development', slug: 'development', color: '#22c55e', orderIndex: 1 },
+  { name: 'Staging', slug: 'staging', color: '#f59e0b', orderIndex: 2 },
+  { name: 'Production', slug: 'production', color: '#ef4444', orderIndex: 3 },
 ];
 
 export const SecretKeyPattern = /^[A-Z][A-Z0-9_]*$/;

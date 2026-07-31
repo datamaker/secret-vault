@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { ListOrdered, Plus, Pencil, Trash2, FolderOpen, UserPlus, UserMinus, Shield, KeyRound, Fingerprint } from 'lucide-react';
+import { ListOrdered, Plus, Pencil, Trash2, FolderOpen, UserPlus, UserMinus, Shield, KeyRound, Fingerprint, Cloud, RefreshCw } from 'lucide-react';
 import { Layout } from '../components/layout/Layout';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import { getTeamActivity, ActivityEntry } from '../api/activity';
@@ -18,6 +18,16 @@ const actionIcons: Record<string, React.ReactNode> = {
   'credential.created': <Fingerprint className="w-4 h-4 text-green-600" />,
   'credential.updated': <Fingerprint className="w-4 h-4 text-blue-600" />,
   'credential.deleted': <Fingerprint className="w-4 h-4 text-red-600" />,
+  'integration.created': <Cloud className="w-4 h-4 text-green-600" />,
+  'integration.deleted': <Cloud className="w-4 h-4 text-red-600" />,
+  'integration.synced': <RefreshCw className="w-4 h-4 text-blue-600" />,
+};
+
+// 자동 싱크처럼 사용자가 없는 이벤트는 "Unknown" 대신 주체를 명확히 표시한다
+const actorOf = (entry: ActivityEntry): string => {
+  if (entry.userName || entry.userEmail) return entry.userName || entry.userEmail!;
+  if (entry.details?.trigger === 'auto') return 'Auto-sync';
+  return 'Unknown';
 };
 
 const describe = (entry: ActivityEntry): React.ReactNode => {
@@ -59,6 +69,18 @@ const describe = (entry: ActivityEntry): React.ReactNode => {
       return <>updated credential <span className="font-medium">{String(d.name ?? '')}</span></>;
     case 'credential.deleted':
       return <>deleted credential <span className="font-medium">{String(d.name ?? '')}</span></>;
+    case 'integration.created':
+      return <>connected integration <span className="font-medium">{String(d.name ?? '')}</span> to {String(d.target ?? '')}</>;
+    case 'integration.deleted':
+      return <>removed integration <span className="font-medium">{String(d.name ?? '')}</span></>;
+    case 'integration.synced':
+      return (
+        <>
+          synced <span className="font-medium">{String(d.synced ?? 0)}</span> secrets via{' '}
+          <span className="font-medium">{String(d.name ?? '')}</span>
+          {Number(d.failed ?? 0) > 0 && <span className="text-red-600"> ({String(d.failed)} failed)</span>}
+        </>
+      );
     default:
       return <>{entry.action}</>;
   }
@@ -99,8 +121,7 @@ export function Activity() {
                 </div>
                 <div className="min-w-0">
                   <div className="text-sm">
-                    <span className="font-medium">{entry.userName || entry.userEmail || 'Unknown'}</span>{' '}
-                    {describe(entry)}
+                    <span className="font-medium">{actorOf(entry)}</span> {describe(entry)}
                   </div>
                   <div className="text-xs text-gray-500 mt-0.5">
                     {new Date(entry.createdAt).toLocaleString()}

@@ -6,6 +6,8 @@ export interface Project {
   name: string;
   slug: string;
   description?: string;
+  environmentCount?: number;
+  secretCount?: number;
   createdAt: string;
 }
 
@@ -30,6 +32,15 @@ export const createProject = async (teamId: string, name: string, description?: 
 
 export const getProject = async (projectId: string): Promise<Project> => {
   const { data } = await api.get<Project>(`/projects/${projectId}`);
+  return data;
+};
+
+export const updateProject = async (
+  projectId: string,
+  name?: string,
+  description?: string
+): Promise<Project> => {
+  const { data } = await api.put<Project>(`/projects/${projectId}`, { name, description });
   return data;
 };
 

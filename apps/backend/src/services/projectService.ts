@@ -72,9 +72,13 @@ export const createProject = async (
 
 export const getProjectsByTeam = async (teamId: string): Promise<Project[]> => {
   const result = await query(
-    `SELECT id, team_id, name, slug, description, created_by, created_at, updated_at
-     FROM projects WHERE team_id = $1
-     ORDER BY name`,
+    `SELECT p.id, p.team_id, p.name, p.slug, p.description, p.created_by, p.created_at, p.updated_at,
+            (SELECT count(*) FROM environments e WHERE e.project_id = p.id) AS environment_count,
+            (SELECT count(*) FROM secrets s
+             JOIN environments e2 ON e2.id = s.environment_id
+             WHERE e2.project_id = p.id) AS secret_count
+     FROM projects p WHERE p.team_id = $1
+     ORDER BY p.name`,
     [teamId]
   );
 
@@ -84,6 +88,8 @@ export const getProjectsByTeam = async (teamId: string): Promise<Project[]> => {
     name: row.name,
     slug: row.slug,
     description: row.description,
+    environmentCount: Number(row.environment_count),
+    secretCount: Number(row.secret_count),
     createdBy: row.created_by,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
