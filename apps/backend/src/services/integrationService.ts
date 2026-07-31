@@ -260,8 +260,7 @@ export const syncIntegration = async (
   }
 };
 
-// 시크릿 변경 시 자동 싱크 (fire-and-forget — 본 작업을 실패시키지 않는다)
-export const syncEnvironmentIntegrations = async (environmentId: string): Promise<void> => {
+const runEnvironmentSync = async (environmentId: string): Promise<void> => {
   try {
     const result = await query(
       'SELECT id FROM integrations WHERE environment_id = $1 AND auto_sync = true',
@@ -275,4 +274,24 @@ export const syncEnvironmentIntegrations = async (environmentId: string): Promis
   } catch (error) {
     console.error('Auto-sync lookup failed:', error);
   }
+};
+
+// 싱크는 환경 전체를 push하므로, 임포트처럼 변경이 몰릴 때 매번 돌리면 낭비다.
+// 환경별로 디바운스해서 조용해진 뒤 한 번만 실행한다.
+const SYNC_DEBOUNCE_MS = Number(process.env.SYNC_DEBOUNCE_MS ?? 1500);
+const pendingSyncs = new Map<string, NodeJS.Timeout>();
+
+// 시크릿 변경 시 자동 싱크 (fire-and-forget — 본 작업을 실패시키지 않는다)
+export const syncEnvironmentIntegrations = async (environmentId: string): Promise<void> => {
+  const existing = pendingSyncs.get(environmentId);
+  if (existing) clearTimeout(existing);
+
+  const timer = setTimeout(() => {
+    pendingSyncs.delete(environmentId);
+    void runEnvironmentSync(environmentId);
+  }, SYNC_DEBOUNCE_MS);
+
+  // 프로세스 종료를 막지 않도록
+  timer.unref?.();
+  pendingSyncs.set(environmentId, timer);
 };
