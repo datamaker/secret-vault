@@ -4,6 +4,7 @@ import { Users, UserPlus, Trash2, Crown, Shield, User, Eye, Clock, Mail } from '
 import toast from 'react-hot-toast';
 import { Layout } from '../components/layout/Layout';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { SearchBox } from '../components/SearchBox';
 import { useAuthStore } from '../store/authStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import {
@@ -48,6 +49,7 @@ export function TeamMembers() {
   const [newMemberEmail, setNewMemberEmail] = useState('');
   const [newMemberRole, setNewMemberRole] = useState<string>('member');
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
+  const [search, setSearch] = useState('');
 
   const { data: members, isLoading } = useQuery({
     queryKey: ['team-members', teamId],
@@ -125,6 +127,15 @@ export function TeamMembers() {
   });
 
   const askConfirm = (state: ConfirmState) => setConfirmState(state);
+
+  const matches = (text?: string | null) =>
+    !search.trim() || (text ?? '').toLowerCase().includes(search.toLowerCase());
+  const filteredMembers = (members ?? []).filter(
+    (m: TeamMember) => matches(m.user?.name) || matches(m.user?.email) || matches(m.role)
+  );
+  const filteredInvitations = (invitations ?? []).filter(
+    (i: TeamInvitation) => matches(i.email) || matches(i.role)
+  );
   const myRole = members?.find((m: TeamMember) => m.userId === user?.id)?.role;
   const canManageMembers = myRole === 'owner' || myRole === 'admin';
   const totalMembersAndInvites = (members?.length || 0) + (invitations?.length || 0);
@@ -168,6 +179,10 @@ export function TeamMembers() {
           </div>
         </div>
 
+        {!!members?.length && (
+          <SearchBox value={search} onChange={setSearch} placeholder="Search by name, email, or role" className="mb-4" />
+        )}
+
         {isLoading ? (
           <div className="text-center py-12">Loading...</div>
         ) : (members?.length === 0 && (!invitations || invitations.length === 0)) ? (
@@ -192,7 +207,7 @@ export function TeamMembers() {
                     </tr>
                   </thead>
                   <tbody>
-                    {members.map((member: TeamMember) => (
+                    {filteredMembers.map((member: TeamMember) => (
                       <tr key={member.id} className="border-b last:border-b-0">
                         <td className="p-4">
                           <div>
@@ -271,7 +286,7 @@ export function TeamMembers() {
                     </tr>
                   </thead>
                   <tbody>
-                    {invitations.map((invitation: TeamInvitation) => (
+                    {filteredInvitations.map((invitation: TeamInvitation) => (
                       <tr key={invitation.id} className="border-b last:border-b-0">
                         <td className="p-4">
                           <div className="flex items-center gap-2">

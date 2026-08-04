@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { copyText } from '../lib/clipboard';
 import { Layout } from '../components/layout/Layout';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { SearchBox } from '../components/SearchBox';
 import { getProject, getEnvironments, deleteProject, Environment } from '../api/projects';
 import {
   getSecrets,
@@ -43,6 +44,7 @@ export function Secrets() {
   const [editDescription, setEditDescription] = useState('');
   const [historyTarget, setHistoryTarget] = useState<Secret | null>(null);
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
+  const [search, setSearch] = useState('');
   // 생성/임포트 후 "다른 환경에도 적용할까요?" 프롬프트 상태
   const [forkPrompt, setForkPrompt] = useState<
     | { type: 'create'; secret: { key: string; value: string; description: string } }
@@ -54,9 +56,10 @@ export function Secrets() {
   const openForkPrompt = (prompt: NonNullable<typeof forkPrompt>) => {
     const others = (environments ?? []).filter((e: Environment) => e.id !== selectedEnv);
     if (others.length === 0) return;
+    // 실수로 다른 환경을 덮어쓰지 않도록 기본은 전부 해제 상태로 둔다
     const defaults: Record<string, boolean> = {};
     others.forEach((e: Environment) => {
-      defaults[e.id] = true;
+      defaults[e.id] = false;
     });
     setForkTargets(defaults);
     setForkPrompt(prompt);
@@ -310,6 +313,12 @@ export function Secrets() {
 
   const currentEnv = environments?.find((e: Environment) => e.id === selectedEnv);
 
+  const filteredSecrets = (secrets ?? []).filter((s: Secret) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return s.key.toLowerCase().includes(q) || (s.description ?? '').toLowerCase().includes(q);
+  });
+
   return (
     <Layout>
       <div className="p-8">
@@ -398,6 +407,10 @@ export function Secrets() {
           </div>
         </div>
 
+        {!!secrets?.length && (
+          <SearchBox value={search} onChange={setSearch} placeholder="Search keys" className="mb-4" />
+        )}
+
         {/* Secrets Table */}
         {isLoading ? (
           <div className="text-center py-12">Loading...</div>
@@ -423,7 +436,7 @@ export function Secrets() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {secrets?.map((secret: Secret) => (
+                {filteredSecrets.map((secret: Secret) => (
                   <tr key={secret.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-mono text-sm truncate" title={secret.key}>{secret.key}</td>
                     <td className="px-4 py-3">

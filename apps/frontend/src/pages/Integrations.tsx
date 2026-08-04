@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, RefreshCw, Trash2, Cloud, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Plus, RefreshCw, Trash2, Cloud, CheckCircle2, AlertTriangle, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Layout } from '../components/layout/Layout';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { SearchBox } from '../components/SearchBox';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import { getProjects, getEnvironments, Project, Environment } from '../api/projects';
 import {
   getIntegrations,
   createIntegration,
+  updateIntegration,
   deleteIntegration,
   syncIntegration,
   Integration,
@@ -30,6 +32,11 @@ export function Integrations() {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
+  const [search, setSearch] = useState('');
+  // 어떤 행이 싱크 중인지 개별 추적 (전체 버튼이 같이 도는 문제 방지)
+  const [syncingIds, setSyncingIds] = useState<Set<string>>(new Set());
+  const [editTarget, setEditTarget] = useState<Integration | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', ownerSlug: '', contextName: '', token: '' });
 
   const { data: integrations, isLoading } = useQuery({
     queryKey: ['integrations', teamId],
@@ -70,8 +77,19 @@ export function Integrations() {
     },
   });
 
+  const markSyncing = (id: string, on: boolean) =>
+    setSyncingIds(prev => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+
   const syncMutation = useMutation({
-    mutationFn: (integrationId: string) => syncIntegration(teamId!, integrationId),
+    mutationFn: (integrationId: string) => {
+      markSyncing(integrationId, true);
+      return syncIntegration(teamId!, integrationId).finally(() => markSyncing(integrationId, false));
+    },
     onSuccess: ({ synced, failed }) => {
       queryClient.invalidateQueries({ queryKey: ['integrations', teamId] });
       if (failed.length > 0) {
@@ -85,6 +103,34 @@ export function Integrations() {
       toast.error(error.response?.data?.message || 'Sync failed');
     },
   });
+
+  const updateMutation = useMutation({
+    mutationFn: () =>
+      updateIntegration(teamId!, editTarget!.id, {
+        name: editForm.name,
+        ownerSlug: editForm.ownerSlug,
+        contextName: editForm.contextName,
+        token: editForm.token || undefined,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['integrations', teamId] });
+      setEditTarget(null);
+      toast.success('Integration updated');
+    },
+    onError: (error: Error & { response?: { data?: { message?: string } } }) => {
+      toast.error(error.response?.data?.message || 'Failed to update integration');
+    },
+  });
+
+  const openEdit = (integration: Integration) => {
+    setEditTarget(integration);
+    setEditForm({
+      name: integration.name,
+      ownerSlug: integration.config.ownerSlug,
+      contextName: integration.config.contextName,
+      token: '',
+    });
+  };
 
   const deleteMutation = useMutation({
     mutationFn: (integrationId: string) => deleteIntegration(teamId!, integrationId),
@@ -103,6 +149,17 @@ export function Integrations() {
     }
     createMutation.mutate();
   };
+
+  const filtered = (integrations ?? []).filter((i: Integration) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (
+      i.name.toLowerCase().includes(q) ||
+      (i.projectName ?? '').toLowerCase().includes(q) ||
+      (i.environmentName ?? '').toLowerCase().includes(q) ||
+      i.config.contextName.toLowerCase().includes(q)
+    );
+  });
 
   const statusBadge = (integration: Integration) => {
     const status = integration.lastSyncStatus;
@@ -140,6 +197,15 @@ export function Integrations() {
           </button>
         </div>
 
+        {!!integrations?.length && (
+          <SearchBox
+            value={search}
+            onChange={setSearch}
+            placeholder="Search by name, project, or context"
+            className="mb-4"
+          />
+        )}
+
         {isLoading ? (
           <div className="text-center py-12">Loading...</div>
         ) : !integrations || integrations.length === 0 ? (
@@ -166,7 +232,7 @@ export function Integrations() {
                 </tr>
               </thead>
               <tbody>
-                {integrations.map((integration: Integration) => (
+                {filtered.map((integration: Integration) => (
                   <tr key={integration.id} className="border-b last:border-b-0">
                     <td className="p-4">
                       <div className="font-medium">{integration.name}</div>
@@ -204,9 +270,18 @@ export function Integrations() {
                         onClick={() => syncMutation.mutate(integration.id)}
                         className="p-2 text-gray-500 hover:bg-gray-100 rounded"
                         title="Sync now"
-                        disabled={syncMutation.isPending}
+                        disabled={syncingIds.has(integration.id)}
                       >
-                        <RefreshCw className={`w-4 h-4 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+                        <RefreshCw
+                          className={`w-4 h-4 ${syncingIds.has(integration.id) ? 'animate-spin' : ''}`}
+                        />
+                      </button>
+                      <button
+                        onClick={() => openEdit(integration)}
+                        className="p-2 text-gray-500 hover:bg-gray-100 rounded"
+                        title="Edit integration"
+                      >
+                        <Pencil className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() =>
@@ -331,6 +406,75 @@ export function Integrations() {
                   </button>
                   <button type="submit" className="btn btn-primary" disabled={createMutation.isPending}>
                     {createMutation.isPending ? 'Connecting...' : 'Create & Sync'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Modal */}
+        {editTarget && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h2 className="text-xl font-bold mb-1">Edit Integration</h2>
+              <p className="text-sm text-gray-500 mb-4">
+                Source: {editTarget.projectName} / {editTarget.environmentName} (변경하려면 새로 만들어야 합니다)
+              </p>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!editForm.name || !editForm.ownerSlug || !editForm.contextName) {
+                    toast.error('Name, org slug, and context are required');
+                    return;
+                  }
+                  updateMutation.mutate();
+                }}
+              >
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <input
+                    type="text"
+                    className="input"
+                    value={editForm.name}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                    autoFocus
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">CircleCI Org Slug</label>
+                  <input
+                    type="text"
+                    className="input font-mono text-sm"
+                    value={editForm.ownerSlug}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, ownerSlug: e.target.value }))}
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Context Name</label>
+                  <input
+                    type="text"
+                    className="input font-mono text-sm"
+                    value={editForm.contextName}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, contextName: e.target.value }))}
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">API Token</label>
+                  <input
+                    type="password"
+                    className="input font-mono text-sm"
+                    value={editForm.token}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, token: e.target.value }))}
+                    placeholder="비워두면 기존 토큰 유지"
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button type="button" className="btn btn-secondary" onClick={() => setEditTarget(null)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-primary" disabled={updateMutation.isPending}>
+                    {updateMutation.isPending ? 'Saving...' : 'Save'}
                   </button>
                 </div>
               </form>

@@ -28,6 +28,20 @@ export const createIntegration = async (req: Request, res: Response, next: NextF
   }
 };
 
+export const updateIntegration = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { name, ownerSlug, contextName, token, autoSync } = req.body;
+    const integration = await integrationService.updateIntegration(
+      req.params.teamId,
+      req.params.integrationId,
+      { name, ownerSlug, contextName, token, autoSync }
+    );
+    res.json(integration);
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const deleteIntegration = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     await integrationService.deleteIntegration(

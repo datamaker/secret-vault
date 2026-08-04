@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Eye, EyeOff, Copy, Pencil, Trash2, Globe, Fingerprint, Search } from 'lucide-react';
+import { Plus, Eye, EyeOff, Copy, Pencil, Trash2, Globe, Fingerprint } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { copyText } from '../lib/clipboard';
 import { Layout } from '../components/layout/Layout';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { SearchBox } from '../components/SearchBox';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import {
   getCredentials,
@@ -131,16 +132,12 @@ export function Credentials() {
         </div>
 
         {!!credentials?.length && (
-          <div className="relative mb-4 max-w-sm">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              className="input pl-9"
-              placeholder="Search by name, URL, or username"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+          <SearchBox
+            value={search}
+            onChange={setSearch}
+            placeholder="Search by name, URL, or username"
+            className="mb-4"
+          />
         )}
 
         {isLoading ? (

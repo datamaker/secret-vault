@@ -153,6 +153,72 @@ export const createIntegration = async (
   return mapRow(result.rows[0]);
 };
 
+export const updateIntegration = async (
+  teamId: string,
+  integrationId: string,
+  fields: {
+    name?: string;
+    ownerSlug?: string;
+    contextName?: string;
+    token?: string;
+    autoSync?: boolean;
+  }
+): Promise<Integration> => {
+  const current = await query(
+    'SELECT * FROM integrations WHERE id = $1 AND team_id = $2',
+    [integrationId, teamId]
+  );
+  if (current.rows.length === 0) {
+    throw new AppError('Integration not found', 404);
+  }
+
+  const row = current.rows[0];
+  const config = row.config as Integration['config'];
+  const ownerSlug = fields.ownerSlug ?? config.ownerSlug;
+  const contextName = fields.contextName ?? config.contextName;
+
+  // 토큰이나 대상이 바뀌면 실제로 접근 가능한지 다시 확인한다
+  const token =
+    fields.token && fields.token.length > 0
+      ? fields.token
+      : encryptionService.decrypt(
+          { encryptedValue: row.encrypted_token, iv: row.iv, authTag: row.auth_tag },
+          keyContext(teamId)
+        );
+
+  const targetChanged = ownerSlug !== config.ownerSlug || contextName !== config.contextName;
+  const contextId =
+    targetChanged || fields.token
+      ? await resolveContextId(token, ownerSlug, contextName)
+      : config.contextId;
+
+  const updates: string[] = ['config = $1', 'updated_at = NOW()'];
+  const values: unknown[] = [JSON.stringify({ ownerSlug, contextName, contextId })];
+  let n = 2;
+
+  if (fields.name !== undefined) {
+    updates.push(`name = $${n++}`);
+    values.push(fields.name);
+  }
+  if (fields.autoSync !== undefined) {
+    updates.push(`auto_sync = $${n++}`);
+    values.push(fields.autoSync);
+  }
+  if (fields.token) {
+    const encrypted = encryptionService.encrypt(fields.token, keyContext(teamId));
+    updates.push(`encrypted_token = $${n++}`, `iv = $${n++}`, `auth_tag = $${n++}`);
+    values.push(encrypted.encryptedValue, encrypted.iv, encrypted.authTag);
+  }
+
+  values.push(integrationId, teamId);
+  const result = await query(
+    `UPDATE integrations SET ${updates.join(', ')} WHERE id = $${n} AND team_id = $${n + 1} RETURNING *`,
+    values
+  );
+
+  return mapRow(result.rows[0]);
+};
+
 export const deleteIntegration = async (
   teamId: string,
   integrationId: string,

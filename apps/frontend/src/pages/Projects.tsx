@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Plus, FolderOpen, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Layout } from '../components/layout/Layout';
+import { SearchBox } from '../components/SearchBox';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import { getProjects, createProject, updateProject, Project } from '../api/projects';
 
@@ -15,6 +16,7 @@ export function Projects() {
   const [newProject, setNewProject] = useState({ name: '', description: '' });
   const [editTarget, setEditTarget] = useState<Project | null>(null);
   const [editForm, setEditForm] = useState({ name: '', description: '' });
+  const [search, setSearch] = useState('');
 
   const { data: projects, isLoading } = useQuery({
     queryKey: ['projects', teamId],
@@ -48,6 +50,12 @@ export function Projects() {
     },
   });
 
+  const filtered = (projects ?? []).filter((p: Project) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return p.name.toLowerCase().includes(q) || (p.description ?? '').toLowerCase().includes(q);
+  });
+
   const openEdit = (project: Project) => {
     setEditTarget(project);
     setEditForm({ name: project.name, description: project.description ?? '' });
@@ -72,6 +80,10 @@ export function Projects() {
             New Project
           </button>
         </div>
+
+        {!!projects?.length && (
+          <SearchBox value={search} onChange={setSearch} placeholder="Search projects" className="mb-4" />
+        )}
 
         {!teamId ? (
           <div className="text-center py-12 text-gray-500">
@@ -101,7 +113,7 @@ export function Projects() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {projects?.map((project: Project) => (
+                {filtered.map((project: Project) => (
                   <tr key={project.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <Link

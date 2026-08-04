@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { copyText } from '../lib/clipboard';
 import { Layout } from '../components/layout/Layout';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { SearchBox } from '../components/SearchBox';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import { getProjects, Project } from '../api/projects';
 import { getTeamTokens, createTeamToken, revokeTeamToken, ApiToken } from '../api/apiTokens';
@@ -25,6 +26,7 @@ export function Tokens() {
   const [newTokenExpiryDays, setNewTokenExpiryDays] = useState<string>('never');
   const [createdToken, setCreatedToken] = useState<string | null>(null);
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
+  const [search, setSearch] = useState('');
 
   const { data: apiTokens, isLoading } = useQuery({
     queryKey: ['team-tokens', teamId],
@@ -88,6 +90,12 @@ export function Tokens() {
     return 'All projects';
   };
 
+  const filtered = (apiTokens ?? []).filter((t: ApiToken) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return t.name.toLowerCase().includes(q) || tokenScopeLabel(t).toLowerCase().includes(q);
+  });
+
   const tokenStatus = (t: ApiToken): 'active' | 'revoked' | 'expired' => {
     if (t.isRevoked) return 'revoked';
     if (t.expiresAt && new Date(t.expiresAt) < new Date()) return 'expired';
@@ -113,6 +121,10 @@ export function Tokens() {
             New API Key
           </button>
         </div>
+
+        {!!apiTokens?.length && (
+          <SearchBox value={search} onChange={setSearch} placeholder="Search by name or scope" className="mb-4" />
+        )}
 
         {isLoading ? (
           <div className="text-center py-12">Loading...</div>
@@ -142,7 +154,7 @@ export function Tokens() {
                 </tr>
               </thead>
               <tbody>
-                {apiTokens.map((token: ApiToken) => {
+                {filtered.map((token: ApiToken) => {
                   const status = tokenStatus(token);
                   return (
                     <tr key={token.id} className="border-b last:border-b-0">

@@ -33,6 +33,7 @@ router.delete('/:teamId/credentials/:credentialId', requireTeamRole('member', 'a
 // Integrations (one-way sync to CircleCI contexts — admin/owner only)
 router.get('/:teamId/integrations', requireTeamRole('admin', 'owner'), integrationController.getIntegrations);
 router.post('/:teamId/integrations', requireTeamRole('admin', 'owner'), integrationController.createIntegration);
+router.put('/:teamId/integrations/:integrationId', requireTeamRole('admin', 'owner'), integrationController.updateIntegration);
 router.delete('/:teamId/integrations/:integrationId', requireTeamRole('admin', 'owner'), integrationController.deleteIntegration);
 router.post('/:teamId/integrations/:integrationId/sync', requireTeamRole('admin', 'owner'), integrationController.syncIntegration);
 

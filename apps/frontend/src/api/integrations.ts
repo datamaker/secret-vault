@@ -34,6 +34,15 @@ export const createIntegration = async (teamId: string, input: IntegrationInput)
   return data;
 };
 
+export const updateIntegration = async (
+  teamId: string,
+  integrationId: string,
+  input: { name?: string; ownerSlug?: string; contextName?: string; token?: string; autoSync?: boolean }
+): Promise<Integration> => {
+  const { data } = await api.put<Integration>(`/teams/${teamId}/integrations/${integrationId}`, input);
+  return data;
+};
+
 export const deleteIntegration = async (teamId: string, integrationId: string): Promise<void> => {
   await api.delete(`/teams/${teamId}/integrations/${integrationId}`);
 };
