@@ -31,6 +31,11 @@ export const changePassword = async (currentPassword: string, newPassword: strin
   await api.put('/auth/password', { currentPassword, newPassword });
 };
 
+export const getOidcStatus = async (): Promise<{ enabled: boolean }> => {
+  const { data } = await api.get<{ enabled: boolean }>('/auth/oidc/status');
+  return data;
+};
+
 export const getMe = async (): Promise<{ user: User }> => {
   const { data } = await api.get<{ user: User }>('/auth/me');
   return data;

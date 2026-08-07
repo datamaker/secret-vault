@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { Key } from 'lucide-react';
+import { Key, KeyRound } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { login } from '../api/auth';
+import { login, getMe, getOidcStatus } from '../api/auth';
 import { useAuthStore } from '../store/authStore';
 
 interface LoginForm {
@@ -15,8 +15,34 @@ export function Login() {
   const navigate = useNavigate();
   const { login: setAuth } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
+  const [ssoEnabled, setSsoEnabled] = useState(false);
+  const ssoHandled = useRef(false);
 
   const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>();
+
+  useEffect(() => {
+    // SSO callback delivers the access token in the URL hash.
+    const match = window.location.hash.match(/^#sso=(.+)$/);
+    if (match && !ssoHandled.current) {
+      ssoHandled.current = true;
+      const token = match[1];
+      window.history.replaceState(null, '', '/login');
+      localStorage.setItem('accessToken', token);
+      getMe()
+        .then(({ user }) => {
+          setAuth(user, token);
+          navigate('/', { replace: true });
+        })
+        .catch(() => {
+          localStorage.removeItem('accessToken');
+          toast.error('SSO sign-in failed');
+        });
+      return;
+    }
+    getOidcStatus()
+      .then(({ enabled }) => setSsoEnabled(enabled))
+      .catch(() => {});
+  }, [navigate, setAuth]);
 
   const onSubmit = async (data: LoginForm) => {
     setIsLoading(true);
@@ -70,6 +96,19 @@ export function Login() {
             {isLoading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
+
+        {ssoEnabled && (
+          <button
+            type="button"
+            onClick={() => {
+              window.location.href = '/api/v1/auth/oidc/start';
+            }}
+            className="btn w-full mt-3 border border-gray-300 flex items-center justify-center gap-2"
+          >
+            <KeyRound className="w-4 h-4" />
+            Datasee SSO로 로그인
+          </button>
+        )}
 
         <p className="mt-4 text-center text-sm text-gray-600">
           Don't have an account?{' '}

@@ -1,6 +1,62 @@
 import { Request, Response, NextFunction } from 'express';
 import * as authService from '../services/authService';
+import * as oidcService from '../services/oidcService';
+import { findOrCreateSsoUser } from '../services/oidcUserService';
 import { AppError } from '../middleware/errorHandler';
+
+const OIDC_COOKIE = 'vault_oidc';
+
+export const oidcStatus = (_req: Request, res: Response): void => {
+  res.json({ enabled: oidcService.oidcEnabled() });
+};
+
+export const oidcStart = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    if (!oidcService.oidcEnabled()) throw new AppError('SSO is not configured', 404);
+    const { url, state, verifier } = await oidcService.buildAuthUrl();
+    res.cookie(OIDC_COOKIE, oidcService.signOidcState({ state, verifier }), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 10 * 60 * 1000,
+      path: '/api/v1/auth/oidc',
+    });
+    res.redirect(url);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const oidcCallback = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    if (!oidcService.oidcEnabled()) throw new AppError('SSO is not configured', 404);
+    const stored = req.cookies[OIDC_COOKIE]
+      ? oidcService.verifyOidcState(req.cookies[OIDC_COOKIE])
+      : null;
+    res.clearCookie(OIDC_COOKIE, { path: '/api/v1/auth/oidc' });
+
+    const { code, state } = req.query as { code?: string; state?: string };
+    if (!stored || !code || !state || stored.state !== state) {
+      throw new AppError('SSO flow expired; start again', 400);
+    }
+
+    const identity = await oidcService.exchangeCode(code, stored.verifier);
+    const user = await findOrCreateSsoUser(identity.email, identity.name);
+    const tokens = authService.generateTokens(user);
+
+    res.cookie('refreshToken', tokens.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    // The SPA login page picks the access token out of the URL hash.
+    res.redirect(`/login#sso=${tokens.accessToken}`);
+  } catch (error) {
+    next(error);
+  }
+};
 
 export const register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
