@@ -109,7 +109,7 @@ export function Tokens() {
           <div>
             <h1 className="text-2xl font-bold">Tokens</h1>
             <p className="text-sm text-gray-500 mt-1">
-              Read-only API keys for CI/CD and the secret-fetcher Lambda.
+              Read-only API keys for CI/CD.
             </p>
           </div>
           <button
