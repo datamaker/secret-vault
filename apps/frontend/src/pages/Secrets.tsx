@@ -321,14 +321,15 @@ export function Secrets() {
 
   return (
     <Layout>
-      <div className="p-8">
+      <div className="p-4 sm:p-6 lg:p-8">
         <div className="mb-6">
-          <Link to="/" className="flex items-center gap-2 text-gray-500 hover:text-gray-700 mb-2">
+          <Link to="/" className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-700 mb-2">
             <ArrowLeft className="w-4 h-4" />
             Back to Projects
           </Link>
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold">{project?.name || 'Loading...'}</h1>
+          {/* 파괴적 동작이라 모바일에서도 풀폭으로 키우지 않고 아이콘만 남긴다 */}
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="text-2xl font-bold break-words min-w-0">{project?.name || 'Loading...'}</h1>
             <button
               onClick={() =>
                 askConfirm({
@@ -339,22 +340,23 @@ export function Secrets() {
                   action: () => deleteProjectMutation.mutate(),
                 })
               }
-              className="btn btn-secondary text-red-600 hover:bg-red-50 flex items-center gap-2"
+              className="btn btn-secondary text-red-600 hover:bg-red-50 shrink-0 max-sm:px-3"
               disabled={deleteProjectMutation.isPending}
+              aria-label="Delete project"
             >
               <Trash2 className="w-4 h-4" />
-              Delete Project
+              <span className="max-sm:hidden">Delete Project</span>
             </button>
           </div>
         </div>
 
-        {/* Environment Tabs */}
-        <div className="flex items-center gap-2 mb-6 border-b">
+        {/* Environment Tabs — 환경이 많으면 모바일에서 가로 스크롤 */}
+        <div className="flex items-center gap-2 mb-6 border-b overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
           {environments?.map((env: Environment) => (
             <button
               key={env.id}
               onClick={() => setSelectedEnv(env.id)}
-              className={`px-4 py-2 border-b-2 transition-colors ${
+              className={`shrink-0 whitespace-nowrap px-4 py-3 border-b-2 transition-colors sm:py-2 ${
                 selectedEnv === env.id
                   ? 'border-primary-500 text-primary-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -369,37 +371,43 @@ export function Secrets() {
           ))}
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="text-sm text-gray-500">
+        {/* Actions — 모바일에서는 버튼이 줄바꿈되며 남는 폭을 나눠 갖는다 */}
+        <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <div className="text-sm text-gray-500 sm:whitespace-nowrap">
             {currentEnv && (
               <span>
                 Showing secrets for <strong>{currentEnv.name}</strong>
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
             {!!secrets?.length && (
-              <button onClick={toggleAllValues} className="btn btn-secondary flex items-center gap-2">
+              <button onClick={toggleAllValues} className="btn btn-secondary flex-1 sm:flex-none">
                 {allShown ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 {allShown ? 'Hide All' : 'Show All'}
               </button>
             )}
-            <button onClick={() => setShowDeletedModal(true)} className="btn btn-secondary flex items-center gap-2">
+            <button
+              onClick={() => setShowDeletedModal(true)}
+              className="btn btn-secondary flex-1 sm:flex-none"
+            >
               <Archive className="w-4 h-4" />
               Deleted
             </button>
-            <button onClick={handleExport} className="btn btn-secondary flex items-center gap-2">
+            <button onClick={handleExport} className="btn btn-secondary flex-1 sm:flex-none">
               <Upload className="w-4 h-4" />
               Export
             </button>
-            <button onClick={() => setShowImportModal(true)} className="btn btn-secondary flex items-center gap-2">
+            <button
+              onClick={() => setShowImportModal(true)}
+              className="btn btn-secondary flex-1 sm:flex-none"
+            >
               <Download className="w-4 h-4" />
               Import
             </button>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="btn btn-primary flex items-center gap-2"
+              className="btn btn-primary basis-full sm:basis-auto"
             >
               <Plus className="w-4 h-4" />
               Add Secret
@@ -426,7 +434,69 @@ export function Secrets() {
           </div>
         ) : (
           <div className="card overflow-hidden">
-            <table className="w-full table-fixed">
+            {/* 모바일: 키/값/설명/액션을 세로로 쌓은 카드 목록 */}
+            <ul className="divide-y md:hidden">
+              {filteredSecrets.map((secret: Secret) => (
+                <li key={secret.id} className="row-card">
+                  <div className="font-mono text-sm font-medium break-all">{secret.key}</div>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 min-w-0 text-sm bg-gray-100 px-2 py-2 rounded break-all">
+                      {showValues[secret.id] ? secret.value : '••••••••'}
+                    </code>
+                    <button
+                      onClick={() => setShowValues(prev => ({ ...prev, [secret.id]: !prev[secret.id] }))}
+                      className="icon-btn hover:bg-gray-100 shrink-0"
+                      aria-label={showValues[secret.id] ? 'Hide value' : 'Show value'}
+                    >
+                      {showValues[secret.id] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                    <button
+                      onClick={() => copyToClipboard(secret.value || '')}
+                      className="icon-btn hover:bg-gray-100 shrink-0"
+                      aria-label="Copy value"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
+                  </div>
+                  {secret.description && (
+                    <p className="text-sm text-gray-500 break-words">{secret.description}</p>
+                  )}
+                  <div className="flex items-center gap-1 -mb-1">
+                    <button
+                      onClick={() => openEdit(secret)}
+                      className="icon-btn text-gray-500 hover:bg-gray-100"
+                      aria-label={`Edit ${secret.key}`}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setHistoryTarget(secret)}
+                      className="icon-btn text-gray-500 hover:bg-gray-100"
+                      aria-label={`History of ${secret.key}`}
+                    >
+                      <History className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() =>
+                        askConfirm({
+                          title: 'Delete Secret',
+                          message: `Delete "${secret.key}" from ${currentEnv?.name}?\nThe last value stays visible in the Deleted archive.`,
+                          confirmLabel: 'Delete',
+                          danger: true,
+                          action: () => deleteSecretMutation.mutate(secret.key),
+                        })
+                      }
+                      className="icon-btn text-red-500 hover:bg-red-50"
+                      aria-label={`Delete ${secret.key}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            <table className="w-full table-fixed hidden md:table">
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="text-left px-4 py-3 text-sm font-medium text-gray-500 w-[26%]">Key</th>
@@ -503,8 +573,8 @@ export function Secrets() {
 
         {/* Create Secret Modal */}
         {showCreateModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+          <div className="modal-overlay">
+            <div className="modal-panel max-w-md">
               <h2 className="text-xl font-bold mb-1">Add New Secret</h2>
               <p className="text-sm text-gray-500 mb-4">
                 Added to <strong>{currentEnv?.name}</strong> — you can copy it to other environments after
@@ -544,7 +614,7 @@ export function Secrets() {
                     placeholder="What this secret is for"
                   />
                 </div>
-                <div className="flex justify-end gap-2">
+                <div className="modal-actions">
                   <button
                     type="button"
                     className="btn btn-secondary"
@@ -567,8 +637,8 @@ export function Secrets() {
 
         {/* Edit Secret Modal */}
         {editTarget && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+          <div className="modal-overlay">
+            <div className="modal-panel max-w-md">
               <h2 className="text-xl font-bold mb-1">
                 Edit <span className="font-mono">{editTarget.key}</span>
               </h2>
@@ -596,7 +666,7 @@ export function Secrets() {
                     placeholder="What this secret is for"
                   />
                 </div>
-                <div className="flex justify-end gap-2">
+                <div className="modal-actions">
                   <button
                     type="button"
                     className="btn btn-secondary"
@@ -619,8 +689,8 @@ export function Secrets() {
 
         {/* History Modal */}
         {historyTarget && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-2xl">
+          <div className="modal-overlay">
+            <div className="modal-panel max-w-2xl">
               <h2 className="text-xl font-bold mb-1">
                 History — <span className="font-mono">{historyTarget.key}</span>
               </h2>
@@ -650,14 +720,14 @@ export function Secrets() {
                       </div>
                       <div className="flex gap-1 shrink-0">
                         <button
-                          className="p-2 text-gray-500 hover:bg-gray-100 rounded"
+                          className="icon-btn text-gray-500 hover:bg-gray-100"
                           title="Copy value"
                           onClick={() => copyToClipboard(h.value || '')}
                         >
                           <Copy className="w-4 h-4" />
                         </button>
                         <button
-                          className="p-2 text-gray-500 hover:bg-gray-100 rounded"
+                          className="icon-btn text-gray-500 hover:bg-gray-100"
                           title="Restore this value"
                           disabled={restoreMutation.isPending}
                           onClick={() =>
@@ -677,8 +747,8 @@ export function Secrets() {
                   ))}
                 </div>
               )}
-              <div className="flex justify-end mt-4">
-                <button className="btn btn-primary" onClick={() => setHistoryTarget(null)}>
+              <div className="flex mt-4 sm:justify-end">
+                <button className="btn btn-primary w-full sm:w-auto" onClick={() => setHistoryTarget(null)}>
                   Close
                 </button>
               </div>
@@ -688,8 +758,8 @@ export function Secrets() {
 
         {/* Deleted Secrets Modal */}
         {showDeletedModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-2xl">
+          <div className="modal-overlay">
+            <div className="modal-panel max-w-2xl">
               <h2 className="text-xl font-bold mb-1">Deleted Secrets — {currentEnv?.name}</h2>
               <p className="text-sm text-gray-500 mb-4">
                 Secrets deleted from this environment, with their last value. Restore re-creates the secret.
@@ -713,14 +783,14 @@ export function Secrets() {
                       </div>
                       <div className="flex gap-1 shrink-0">
                         <button
-                          className="p-2 text-gray-500 hover:bg-gray-100 rounded"
+                          className="icon-btn text-gray-500 hover:bg-gray-100"
                           title="Copy value"
                           onClick={() => copyToClipboard(d.value)}
                         >
                           <Copy className="w-4 h-4" />
                         </button>
                         <button
-                          className="p-2 text-gray-500 hover:bg-gray-100 rounded"
+                          className="icon-btn text-gray-500 hover:bg-gray-100"
                           title="Restore secret"
                           disabled={restoreDeletedMutation.isPending}
                           onClick={() =>
@@ -740,8 +810,8 @@ export function Secrets() {
                   ))}
                 </div>
               )}
-              <div className="flex justify-end mt-4">
-                <button className="btn btn-primary" onClick={() => setShowDeletedModal(false)}>
+              <div className="flex mt-4 sm:justify-end">
+                <button className="btn btn-primary w-full sm:w-auto" onClick={() => setShowDeletedModal(false)}>
                   Close
                 </button>
               </div>
@@ -751,8 +821,8 @@ export function Secrets() {
 
         {/* Import Secrets Modal */}
         {showImportModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-lg">
+          <div className="modal-overlay">
+            <div className="modal-panel max-w-lg">
               <h2 className="text-xl font-bold mb-1">Import Secrets</h2>
               <p className="text-sm text-gray-500 mb-4">
                 Imported into <strong>{currentEnv?.name}</strong> — you can copy to other environments after
@@ -790,7 +860,7 @@ https://sqs.ap-northeast-2.amazonaws.com/..."
                     Lambda console. Existing keys will be updated.
                   </p>
                 </div>
-                <div className="flex justify-end gap-2">
+                <div className="modal-actions">
                   <button
                     type="button"
                     className="btn btn-secondary"
@@ -816,8 +886,8 @@ https://sqs.ap-northeast-2.amazonaws.com/..."
 
         {/* Apply to other environments? (도플러식 후속 선택) */}
         {forkPrompt && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+          <div className="modal-overlay">
+            <div className="modal-panel max-w-md">
               <h2 className="text-xl font-bold mb-1">Apply to other environments?</h2>
               <p className="text-sm text-gray-500 mb-4">
                 {forkPrompt.type === 'import'
@@ -829,10 +899,10 @@ https://sqs.ap-northeast-2.amazonaws.com/..."
                 {(environments ?? [])
                   .filter((e: Environment) => e.id !== selectedEnv)
                   .map((env: Environment) => (
-                    <label key={env.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <label key={env.id} className="flex items-center gap-2 py-2 text-sm cursor-pointer">
                       <input
                         type="checkbox"
-                        className="rounded"
+                        className="rounded w-4 h-4"
                         checked={!!forkTargets[env.id]}
                         onChange={(e) =>
                           setForkTargets(prev => ({ ...prev, [env.id]: e.target.checked }))
@@ -846,7 +916,7 @@ https://sqs.ap-northeast-2.amazonaws.com/..."
                     </label>
                   ))}
               </div>
-              <div className="flex justify-end gap-2">
+              <div className="modal-actions">
                 <button
                   type="button"
                   className="btn btn-secondary"

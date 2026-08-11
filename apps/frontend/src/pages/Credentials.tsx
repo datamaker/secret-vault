@@ -117,15 +117,19 @@ export function Credentials() {
 
   return (
     <Layout>
-      <div className="p-8">
-        <div className="flex items-center justify-between mb-8">
+      <div className="p-4 sm:p-6 lg:p-8">
+        <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-start sm:justify-between sm:mb-8">
           <div>
             <h1 className="text-2xl font-bold">Credentials</h1>
             <p className="text-sm text-gray-500 mt-1">
               Shared logins (ID / password / URL) for this team. Used by the Chrome extension for autofill.
             </p>
           </div>
-          <button onClick={openCreate} className="btn btn-primary flex items-center gap-2" disabled={!teamId}>
+          <button
+            onClick={openCreate}
+            className="btn btn-primary w-full shrink-0 sm:w-auto"
+            disabled={!teamId}
+          >
             <Plus className="w-4 h-4" />
             New Credential
           </button>
@@ -153,7 +157,96 @@ export function Credentials() {
           </div>
         ) : (
           <div className="card overflow-hidden">
-            <table className="w-full table-fixed">
+            {/* 모바일: 표를 카드 목록으로 대체 */}
+            <ul className="divide-y md:hidden">
+              {filtered.map((credential: Credential) => (
+                <li key={credential.id} className="row-card">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="font-medium break-words">{credential.name}</div>
+                      {credential.notes && (
+                        <div className="text-xs text-gray-400 break-words">{credential.notes}</div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 -my-2 shrink-0">
+                      <button
+                        onClick={() => openEdit(credential)}
+                        className="icon-btn text-gray-500 hover:bg-gray-100"
+                        aria-label={`Edit ${credential.name}`}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() =>
+                          setConfirmState({
+                            title: 'Delete Credential',
+                            message: `Delete "${credential.name}"?`,
+                            confirmLabel: 'Delete',
+                            danger: true,
+                            action: () => deleteMutation.mutate(credential.id),
+                          })
+                        }
+                        className="icon-btn text-red-500 hover:bg-red-50"
+                        aria-label={`Delete ${credential.name}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {credential.url && (
+                    <a
+                      href={credential.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-start gap-1 text-sm text-primary-600 break-all"
+                    >
+                      <Globe className="w-3.5 h-3.5 shrink-0 mt-1" />
+                      <span className="break-all">{credential.url}</span>
+                    </a>
+                  )}
+
+                  {credential.username && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500 w-16 shrink-0">Username</span>
+                      <span className="flex-1 min-w-0 text-sm break-all">{credential.username}</span>
+                      <button
+                        onClick={() => copy(credential.username!, 'Username')}
+                        className="icon-btn hover:bg-gray-100 shrink-0"
+                        aria-label="Copy username"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 w-16 shrink-0">Password</span>
+                    <code className="flex-1 min-w-0 text-sm bg-gray-100 px-2 py-2 rounded break-all">
+                      {shownPasswords[credential.id] ? credential.password : '••••••••'}
+                    </code>
+                    <button
+                      onClick={() =>
+                        setShownPasswords(prev => ({ ...prev, [credential.id]: !prev[credential.id] }))
+                      }
+                      className="icon-btn hover:bg-gray-100 shrink-0"
+                      aria-label={shownPasswords[credential.id] ? 'Hide password' : 'Show password'}
+                    >
+                      {shownPasswords[credential.id] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                    <button
+                      onClick={() => copy(credential.password ?? '', 'Password')}
+                      className="icon-btn hover:bg-gray-100 shrink-0"
+                      aria-label="Copy password"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            <table className="w-full table-fixed hidden md:table">
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="text-left px-4 py-3 text-sm font-medium text-gray-500 w-[22%]">Name</th>
@@ -262,8 +355,8 @@ export function Credentials() {
 
         {/* Create / Edit Modal */}
         {showModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+          <div className="modal-overlay">
+            <div className="modal-panel max-w-md">
               <h2 className="text-xl font-bold mb-4">
                 {editTarget ? `Edit ${editTarget.name}` : 'Add New Credential'}
               </h2>
@@ -322,7 +415,7 @@ export function Credentials() {
                     placeholder="What this login is for"
                   />
                 </div>
-                <div className="flex justify-end gap-2">
+                <div className="modal-actions">
                   <button
                     type="button"
                     className="btn btn-secondary"

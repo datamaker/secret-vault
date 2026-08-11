@@ -44,10 +44,10 @@ export function ShareView() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-md p-8 w-full max-w-xl">
-        <div className="flex items-center gap-2 text-xl font-bold mb-6">
-          <Key className="w-6 h-6 text-primary-600" />
+    <div className="min-h-viewport bg-gray-100 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg shadow-md p-5 w-full max-w-xl sm:p-8">
+        <div className="flex items-center gap-2 text-lg font-bold mb-6 sm:text-xl">
+          <Key className="w-6 h-6 text-primary-600 shrink-0" />
           Secret Vault — Shared Secret
         </div>
 
@@ -68,7 +68,7 @@ export function ShareView() {
                   : `${remainingViews} view(s) remaining.`}
               </p>
             )}
-            <button onClick={copySecret} className="btn btn-primary flex items-center gap-2">
+            <button onClick={copySecret} className="btn btn-primary w-full sm:w-auto">
               <Copy className="w-4 h-4" />
               Copy Secret
             </button>
@@ -80,7 +80,7 @@ export function ShareView() {
             </p>
             <button
               onClick={handleReveal}
-              className="btn btn-primary flex items-center gap-2"
+              className="btn btn-primary w-full sm:w-auto"
               disabled={loading}
             >
               <Eye className="w-4 h-4" />

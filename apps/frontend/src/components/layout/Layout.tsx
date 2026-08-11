@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { LogOut, Key, Users, FolderOpen, Lock, ListOrdered, KeyRound, Plus, Send, ChevronDown, Fingerprint, Cloud } from 'lucide-react';
+import { LogOut, Key, Users, FolderOpen, Lock, ListOrdered, KeyRound, Plus, Send, ChevronDown, Fingerprint, Cloud, Menu, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../../store/authStore';
 import { useWorkspaceStore } from '../../store/workspaceStore';
@@ -26,7 +26,9 @@ export function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuthStore();
   const { teamId, setTeamId } = useWorkspaceStore();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
   const [newTeamName, setNewTeamName] = useState('');
@@ -51,6 +53,26 @@ export function Layout({ children }: LayoutProps) {
       setTeamId(teams[0].id);
     }
   }, [teams, teamId, setTeamId]);
+
+  // 모바일 드로어는 화면을 이동하면 닫는다
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
+
+  // 드로어가 열려 있는 동안에는 뒤 배경이 스크롤되지 않게 잠근다
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSidebarOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [sidebarOpen]);
 
   const createTeamMutation = useMutation({
     mutationFn: (name: string) => createTeam(name),
@@ -108,14 +130,36 @@ export function Layout({ children }: LayoutProps) {
   };
 
   return (
-    <div className="min-h-screen flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-gray-900 text-white flex flex-col">
-        <div className="p-4 border-b border-gray-800">
-          <NavLink to="/" className="flex items-center gap-2 text-xl font-bold">
-            <Key className="w-6 h-6" />
-            Secret Vault
+    <div className="min-h-viewport flex">
+      {/* 모바일에서 드로어가 열렸을 때의 배경 (탭하면 닫힘) */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/50 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Sidebar — 모바일에서는 오프캔버스 드로어, lg 이상에서는 고정 사이드바 */}
+      <aside
+        id="app-sidebar"
+        aria-label="Main navigation"
+        className={`fixed inset-y-0 left-0 z-40 w-72 max-w-[85vw] overflow-y-auto bg-gray-900 text-white flex flex-col transition-transform duration-200 ease-out lg:static lg:z-auto lg:w-64 lg:max-w-none lg:translate-x-0 ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="p-4 border-b border-gray-800 flex items-center justify-between gap-2">
+          <NavLink to="/" className="flex items-center gap-2 text-xl font-bold min-w-0">
+            <Key className="w-6 h-6 shrink-0" />
+            <span className="truncate">Secret Vault</span>
           </NavLink>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="icon-btn hover:bg-gray-800 shrink-0 lg:hidden"
+            aria-label="Close navigation"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Workspace (team) selector */}
@@ -156,8 +200,10 @@ export function Layout({ children }: LayoutProps) {
               key={to}
               to={to}
               end={to === '/'}
+              // 같은 화면을 다시 누르면 pathname이 안 바뀌므로 여기서도 드로어를 닫는다
+              onClick={() => setSidebarOpen(false)}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                `flex items-center gap-3 px-3 py-3 rounded-lg transition-colors sm:py-2 ${
                   isActive ? 'bg-gray-800 text-white' : 'hover:bg-gray-800 text-gray-300'
                 }`
               }
@@ -168,24 +214,26 @@ export function Layout({ children }: LayoutProps) {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-gray-800">
-          <div className="flex items-center justify-between">
-            <div className="text-sm">
-              <div className="font-medium">{user?.name}</div>
-              <div className="text-gray-400 text-xs">{user?.email}</div>
+        <div className="p-4 border-t border-gray-800 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-sm min-w-0">
+              <div className="font-medium truncate">{user?.name}</div>
+              <div className="text-gray-400 text-xs truncate">{user?.email}</div>
             </div>
-            <div className="flex items-center">
+            <div className="flex items-center shrink-0">
               <button
                 onClick={() => setShowPasswordModal(true)}
-                className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+                className="icon-btn hover:bg-gray-800"
                 title="Change password"
+                aria-label="Change password"
               >
                 <Lock className="w-5 h-5" />
               </button>
               <button
                 onClick={handleLogout}
-                className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+                className="icon-btn hover:bg-gray-800"
                 title="Logout"
+                aria-label="Logout"
               >
                 <LogOut className="w-5 h-5" />
               </button>
@@ -195,14 +243,33 @@ export function Layout({ children }: LayoutProps) {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto">
-        {children}
-      </main>
+      <div className="flex-1 min-w-0 flex flex-col">
+        {/* 모바일 상단 바 — 드로어를 여는 유일한 진입점이라 항상 붙어 있게 sticky */}
+        <header className="sticky top-0 z-20 flex items-center gap-2 bg-gray-900 px-2 py-2 text-white lg:hidden">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="icon-btn hover:bg-gray-800"
+            aria-label="Open navigation"
+            aria-controls="app-sidebar"
+            aria-expanded={sidebarOpen}
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+          <NavLink to="/" className="flex items-center gap-2 font-bold min-w-0">
+            <Key className="w-5 h-5 shrink-0" />
+            <span className="truncate">Secret Vault</span>
+          </NavLink>
+        </header>
+
+        <main className="flex-1 min-w-0">
+          {children}
+        </main>
+      </div>
 
       {/* Create Team Modal */}
       {showCreateTeamModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md text-gray-900">
+        <div className="modal-overlay">
+          <div className="modal-panel max-w-md">
             <h2 className="text-xl font-bold mb-4">Create New Team</h2>
             <form
               onSubmit={(e) => {
@@ -221,7 +288,7 @@ export function Layout({ children }: LayoutProps) {
                   autoFocus
                 />
               </div>
-              <div className="flex justify-end gap-2">
+              <div className="modal-actions">
                 <button
                   type="button"
                   className="btn btn-secondary"
@@ -240,8 +307,8 @@ export function Layout({ children }: LayoutProps) {
 
       {/* Change Password Modal */}
       {showPasswordModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md text-gray-900">
+        <div className="modal-overlay">
+          <div className="modal-panel max-w-md">
             <h2 className="text-xl font-bold mb-4">Change Password</h2>
             <form onSubmit={handleChangePassword}>
               <div className="mb-4">
@@ -279,7 +346,7 @@ export function Layout({ children }: LayoutProps) {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                 />
               </div>
-              <div className="flex justify-end gap-2">
+              <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={closePasswordModal}>
                   Cancel
                 </button>

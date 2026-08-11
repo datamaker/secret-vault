@@ -6,6 +6,14 @@
   body {
     @apply bg-gray-50 text-gray-900;
   }
+
+  /* 모바일 가로 스크롤(가로 삐져나옴) 방지 */
+  html,
+  body {
+    @apply overflow-x-hidden;
+    /* landscape 회전 시 iOS가 글자를 임의로 키우는 것을 막는다 */
+    -webkit-text-size-adjust: 100%;
+  }
 }
 
 /* 컴포넌트 클래스는 @layer components 안에 둔다.
@@ -13,6 +21,8 @@
 @layer components {
   .btn {
     @apply px-4 py-2 rounded-lg font-medium transition-colors duration-200;
+    /* 터치 타깃 최소 높이 확보 + 좁은 화면에서 라벨이 줄바꿈되지 않게 */
+    @apply inline-flex items-center justify-center gap-2 min-h-[44px] whitespace-nowrap sm:min-h-0;
   }
 
   .btn-primary {
@@ -33,5 +43,52 @@
 
   .card {
     @apply bg-white rounded-lg shadow-sm border border-gray-200;
+  }
+
+  /* 아이콘 전용 버튼. 모바일에서 44px 터치 타깃을 보장한다. */
+  .icon-btn {
+    @apply inline-flex items-center justify-center w-11 h-11 rounded-lg transition-colors sm:w-9 sm:h-9;
+  }
+
+  /* 모달 공통 레이아웃.
+     모바일에서는 화면 아래에 붙는 바텀시트로, sm 이상에서는 가운데 정렬 카드로 뜬다. */
+  .modal-overlay {
+    @apply fixed inset-0 z-50 bg-black/50 flex items-end justify-center overflow-y-auto sm:items-center sm:p-4;
+  }
+
+  .modal-panel {
+    @apply bg-white text-gray-900 w-full max-h-[90vh] overflow-y-auto p-5 rounded-t-2xl sm:p-6 sm:rounded-lg;
+    /* 홈 인디케이터가 있는 기기에서 하단 버튼이 가려지지 않도록 */
+    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
+  }
+
+  /* 모달 하단 버튼 줄 — 모바일에서는 풀폭 세로 배치가 누르기 쉽다. */
+  .modal-actions {
+    @apply flex flex-col-reverse gap-2 sm:flex-row sm:justify-end;
+  }
+}
+
+@layer utilities {
+  /* 모바일 표에서 카드로 바뀌는 목록의 공통 여백 */
+  .row-card {
+    @apply p-4 space-y-3;
+  }
+
+  /* 모바일 브라우저 주소창을 제외한 실제 화면 높이.
+     min-h-screen과 min-h-dvh를 같이 쓰면 Tailwind가 dvh를 먼저 출력해서
+     screen이 이기므로, 한 규칙 안에서 폴백을 직접 선언한다. */
+  .min-h-viewport {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+}
+
+/* iOS Safari는 폰트가 16px보다 작은 입력에 포커스되면 화면을 확대한다.
+   유틸리티(text-sm 등)를 이기도록 레이어 밖에 둔다. */
+@media (max-width: 640px) {
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px;
   }
 }
