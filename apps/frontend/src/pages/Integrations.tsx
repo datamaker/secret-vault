@@ -178,8 +178,8 @@ export function Integrations() {
 
   return (
     <Layout>
-      <div className="p-8">
-        <div className="flex items-center justify-between mb-8">
+      <div className="p-4 sm:p-6 lg:p-8">
+        <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-start sm:justify-between sm:mb-8">
           <div>
             <h1 className="text-2xl font-bold">Integrations</h1>
             <p className="text-sm text-gray-500 mt-1">
@@ -189,7 +189,7 @@ export function Integrations() {
           </div>
           <button
             onClick={() => setShowModal(true)}
-            className="btn btn-primary flex items-center gap-2"
+            className="btn btn-primary w-full shrink-0 sm:w-auto"
             disabled={!teamId}
           >
             <Plus className="w-4 h-4" />
@@ -220,8 +220,88 @@ export function Integrations() {
             </button>
           </div>
         ) : (
-          <div className="card">
-            <table className="w-full">
+          <div className="card overflow-hidden">
+            {/* 모바일: 표를 카드 목록으로 대체 */}
+            <ul className="divide-y lg:hidden">
+              {filtered.map((integration: Integration) => (
+                <li key={integration.id} className="row-card">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="font-medium break-words">{integration.name}</div>
+                      {integration.autoSync && (
+                        <div className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+                          <CheckCircle2 className="w-3 h-3 shrink-0" />
+                          auto-sync on change
+                        </div>
+                      )}
+                    </div>
+                    <div className="shrink-0">{statusBadge(integration)}</div>
+                  </div>
+
+                  <dl className="grid grid-cols-[auto,1fr] gap-x-3 gap-y-1 text-xs">
+                    <dt className="font-medium text-gray-600">Source</dt>
+                    <dd className="break-words">
+                      {integration.projectName} / <strong>{integration.environmentName}</strong>
+                    </dd>
+                    <dt className="font-medium text-gray-600">Target</dt>
+                    <dd className="break-all">
+                      <code className="bg-gray-100 px-1.5 py-0.5 rounded">
+                        {integration.config.ownerSlug}
+                      </code>{' '}
+                      → {integration.config.contextName}
+                    </dd>
+                    {integration.lastSyncAt && (
+                      <>
+                        <dt className="font-medium text-gray-600">Last sync</dt>
+                        <dd className="text-gray-500">
+                          {new Date(integration.lastSyncAt).toLocaleString()}
+                        </dd>
+                      </>
+                    )}
+                  </dl>
+                  {integration.lastSyncMessage && (
+                    <p className="text-xs text-gray-400 break-words">{integration.lastSyncMessage}</p>
+                  )}
+
+                  <div className="flex items-center gap-1 -mb-1">
+                    <button
+                      onClick={() => syncMutation.mutate(integration.id)}
+                      className="icon-btn text-gray-500 hover:bg-gray-100"
+                      aria-label={`Sync ${integration.name} now`}
+                      disabled={syncingIds.has(integration.id)}
+                    >
+                      <RefreshCw
+                        className={`w-4 h-4 ${syncingIds.has(integration.id) ? 'animate-spin' : ''}`}
+                      />
+                    </button>
+                    <button
+                      onClick={() => openEdit(integration)}
+                      className="icon-btn text-gray-500 hover:bg-gray-100"
+                      aria-label={`Edit ${integration.name}`}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() =>
+                        setConfirmState({
+                          title: 'Delete Integration',
+                          message: `Delete "${integration.name}"?\nSecrets already pushed to CircleCI stay there.`,
+                          confirmLabel: 'Delete',
+                          danger: true,
+                          action: () => deleteMutation.mutate(integration.id),
+                        })
+                      }
+                      className="icon-btn text-red-500 hover:bg-red-50"
+                      aria-label={`Delete ${integration.name}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            <table className="w-full hidden lg:table">
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="text-left p-4 font-medium text-gray-600">Name</th>
@@ -308,8 +388,8 @@ export function Integrations() {
 
         {/* Create Modal */}
         {showModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-auto">
+          <div className="modal-overlay">
+            <div className="modal-panel max-w-md">
               <h2 className="text-xl font-bold mb-4">New CircleCI Integration</h2>
               <form onSubmit={handleSubmit}>
                 <div className="mb-4">
@@ -323,7 +403,7 @@ export function Integrations() {
                     autoFocus
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="grid grid-cols-1 gap-3 mb-4 sm:grid-cols-2">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
                     <select
@@ -393,7 +473,7 @@ export function Integrations() {
                     그대로 두고, 같은 키만 덮어씁니다.
                   </p>
                 </div>
-                <div className="flex justify-end gap-2">
+                <div className="modal-actions">
                   <button
                     type="button"
                     className="btn btn-secondary"
@@ -415,8 +495,8 @@ export function Integrations() {
 
         {/* Edit Modal */}
         {editTarget && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+          <div className="modal-overlay">
+            <div className="modal-panel max-w-md">
               <h2 className="text-xl font-bold mb-1">Edit Integration</h2>
               <p className="text-sm text-gray-500 mb-4">
                 Source: {editTarget.projectName} / {editTarget.environmentName} (변경하려면 새로 만들어야 합니다)
@@ -469,7 +549,7 @@ export function Integrations() {
                     placeholder="비워두면 기존 토큰 유지"
                   />
                 </div>
-                <div className="flex justify-end gap-2">
+                <div className="modal-actions">
                   <button type="button" className="btn btn-secondary" onClick={() => setEditTarget(null)}>
                     Cancel
                   </button>

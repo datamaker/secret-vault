@@ -98,8 +98,8 @@ export function Activity() {
 
   return (
     <Layout>
-      <div className="p-8">
-        <div className="mb-8">
+      <div className="p-4 sm:p-6 lg:p-8">
+        <div className="mb-6 sm:mb-8">
           <h1 className="text-2xl font-bold">Activity</h1>
           <p className="text-sm text-gray-500 mt-1">Get a basic overview of your team's actions.</p>
         </div>
@@ -120,7 +120,7 @@ export function Activity() {
                   {actionIcons[entry.action] ?? <ListOrdered className="w-4 h-4 text-gray-400" />}
                 </div>
                 <div className="min-w-0">
-                  <div className="text-sm">
+                  <div className="text-sm break-words">
                     <span className="font-medium">{actorOf(entry)}</span> {describe(entry)}
                   </div>
                   <div className="text-xs text-gray-500 mt-0.5">

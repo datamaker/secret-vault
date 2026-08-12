@@ -142,13 +142,14 @@ export function TeamMembers() {
 
   return (
     <Layout>
-      <div className="p-8">
-        <div className="flex items-center justify-between mb-8">
+      <div className="p-4 sm:p-6 lg:p-8">
+        <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between sm:mb-8">
           <div>
             <h1 className="text-2xl font-bold">Team</h1>
             <p className="text-sm text-gray-500 mt-1">{totalMembersAndInvites} members &amp; invitations</p>
           </div>
-          <div className="flex items-center gap-2">
+          {/* 모바일에서는 주 동작(Add Member)이 위로 오도록 순서를 뒤집는다 */}
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
             {myRole === 'owner' && (
               <button
                 onClick={() =>
@@ -160,7 +161,7 @@ export function TeamMembers() {
                     action: () => deleteTeamMutation.mutate(),
                   })
                 }
-                className="btn btn-secondary text-red-600 hover:bg-red-50 flex items-center gap-2"
+                className="btn btn-secondary text-red-600 hover:bg-red-50 self-start sm:self-auto"
                 disabled={deleteTeamMutation.isPending}
               >
                 <Trash2 className="w-4 h-4" />
@@ -170,7 +171,7 @@ export function TeamMembers() {
             {canManageMembers && (
               <button
                 onClick={() => setShowAddMemberModal(true)}
-                className="btn btn-primary flex items-center gap-2"
+                className="btn btn-primary w-full sm:w-auto"
               >
                 <UserPlus className="w-4 h-4" />
                 Add Member
@@ -198,7 +199,61 @@ export function TeamMembers() {
                 <div className="p-4 border-b bg-gray-50">
                   <h3 className="font-medium text-gray-700">Active Members ({members.length})</h3>
                 </div>
-                <table className="w-full">
+                {/* 모바일: 표를 카드 목록으로 대체 */}
+                <ul className="divide-y md:hidden">
+                  {filteredMembers.map((member: TeamMember) => (
+                    <li key={member.id} className="row-card">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="font-medium break-words">{member.user?.name || 'Unknown'}</div>
+                          <div className="text-sm text-gray-500 break-all">{member.user?.email}</div>
+                        </div>
+                        {member.role !== 'owner' && canManageMembers && (
+                          <button
+                            onClick={() =>
+                              askConfirm({
+                                title: 'Remove Member',
+                                message: `Remove ${member.user?.email || 'this member'} from this team?`,
+                                confirmLabel: 'Remove',
+                                danger: true,
+                                action: () => removeMemberMutation.mutate(member.userId),
+                              })
+                            }
+                            className="icon-btn -my-2 text-red-500 hover:bg-red-50 shrink-0"
+                            aria-label={`Remove ${member.user?.email || 'member'}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {roleIcons[member.role]}
+                        {canManageMembers && member.role !== 'owner' ? (
+                          <select
+                            className="input py-2"
+                            value={member.role}
+                            aria-label={`Role of ${member.user?.email || 'member'}`}
+                            disabled={updateMemberRoleMutation.isPending}
+                            onChange={(e) =>
+                              updateMemberRoleMutation.mutate({
+                                userId: member.userId,
+                                role: e.target.value,
+                              })
+                            }
+                          >
+                            <option value="viewer">Viewer</option>
+                            <option value="member">Member</option>
+                            <option value="admin">Admin</option>
+                          </select>
+                        ) : (
+                          <span>{roleLabels[member.role]}</span>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+
+                <table className="w-full hidden md:table">
                   <thead className="bg-gray-50 border-b">
                     <tr>
                       <th className="text-left p-4 font-medium text-gray-600">User</th>
@@ -276,7 +331,45 @@ export function TeamMembers() {
                     Pending Invitations ({invitations.length})
                   </h3>
                 </div>
-                <table className="w-full">
+                {/* 모바일: 표를 카드 목록으로 대체 */}
+                <ul className="divide-y md:hidden">
+                  {filteredInvitations.map((invitation: TeamInvitation) => (
+                    <li key={invitation.id} className="row-card">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-2 min-w-0">
+                          <Mail className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+                          <span className="break-all">{invitation.email}</span>
+                        </div>
+                        <button
+                          onClick={() =>
+                            askConfirm({
+                              title: 'Cancel Invitation',
+                              message: `Cancel invitation for ${invitation.email}?`,
+                              confirmLabel: 'Cancel Invitation',
+                              danger: true,
+                              action: () => cancelInvitationMutation.mutate(invitation.id),
+                            })
+                          }
+                          className="icon-btn -my-2 text-red-500 hover:bg-red-50 shrink-0"
+                          aria-label={`Cancel invitation for ${invitation.email}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                        <span className="flex items-center gap-2">
+                          {roleIcons[invitation.role]}
+                          {roleLabels[invitation.role]}
+                        </span>
+                        <span className="text-gray-500">
+                          Expires {new Date(invitation.expiresAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+
+                <table className="w-full hidden md:table">
                   <thead className="bg-gray-50 border-b">
                     <tr>
                       <th className="text-left p-4 font-medium text-gray-600">Email</th>
@@ -331,8 +424,8 @@ export function TeamMembers() {
 
         {/* Add Member Modal */}
         {showAddMemberModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+          <div className="modal-overlay">
+            <div className="modal-panel max-w-md">
               <h2 className="text-xl font-bold mb-4">Add Team Member</h2>
               <form
                 onSubmit={(e) => {
@@ -372,7 +465,7 @@ export function TeamMembers() {
                     <option value="admin">Admin - Can manage team &amp; projects</option>
                   </select>
                 </div>
-                <div className="flex justify-end gap-2">
+                <div className="modal-actions">
                   <button
                     type="button"
                     className="btn btn-secondary"

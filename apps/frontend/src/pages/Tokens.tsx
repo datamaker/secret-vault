@@ -102,10 +102,33 @@ export function Tokens() {
     return 'active';
   };
 
+  // 표(데스크톱)와 카드 목록(모바일)이 같은 배지를 공유한다
+  const statusBadge = (status: ReturnType<typeof tokenStatus>) => (
+    <span
+      className={`text-xs font-medium px-2 py-1 rounded-full ${
+        status === 'active'
+          ? 'bg-green-100 text-green-700'
+          : status === 'expired'
+            ? 'bg-yellow-100 text-yellow-700'
+            : 'bg-red-100 text-red-700'
+      }`}
+    >
+      {status}
+    </span>
+  );
+
+  const revokeConfirm = (token: ApiToken) => ({
+    title: 'Revoke API Key',
+    message: `Revoke API key "${token.name}"?\nAnything using it will stop working immediately.`,
+    confirmLabel: 'Revoke',
+    danger: true,
+    action: () => revokeTokenMutation.mutate(token.id),
+  });
+
   return (
     <Layout>
-      <div className="p-8">
-        <div className="flex items-center justify-between mb-8">
+      <div className="p-4 sm:p-6 lg:p-8">
+        <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between sm:mb-8">
           <div>
             <h1 className="text-2xl font-bold">Tokens</h1>
             <p className="text-sm text-gray-500 mt-1">
@@ -114,7 +137,7 @@ export function Tokens() {
           </div>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="btn btn-primary flex items-center gap-2"
+            className="btn btn-primary w-full shrink-0 sm:w-auto"
             disabled={!teamId}
           >
             <KeyRound className="w-4 h-4" />
@@ -140,8 +163,47 @@ export function Tokens() {
             </button>
           </div>
         ) : (
-          <div className="card">
-            <table className="w-full">
+          <div className="card overflow-hidden">
+            {/* 모바일: 7컬럼 표 대신 카드 목록 */}
+            <ul className="divide-y lg:hidden">
+              {filtered.map((token: ApiToken) => {
+                const status = tokenStatus(token);
+                return (
+                  <li key={token.id} className="row-card">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-medium break-words">{token.name}</div>
+                        <code className="text-xs bg-gray-100 px-2 py-0.5 rounded break-all">
+                          {token.tokenPrefix}…
+                        </code>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {statusBadge(status)}
+                        {!token.isRevoked && (
+                          <button
+                            onClick={() => setConfirmState(revokeConfirm(token))}
+                            className="icon-btn -my-2 text-red-500 hover:bg-red-50"
+                            aria-label={`Revoke ${token.name}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <dl className="grid grid-cols-[auto,1fr] gap-x-3 gap-y-1 text-xs text-gray-500">
+                      <dt className="font-medium text-gray-600">Scope</dt>
+                      <dd className="break-words">{tokenScopeLabel(token)}</dd>
+                      <dt className="font-medium text-gray-600">Last used</dt>
+                      <dd>{token.lastUsedAt ? new Date(token.lastUsedAt).toLocaleString() : 'Never'}</dd>
+                      <dt className="font-medium text-gray-600">Expires</dt>
+                      <dd>{token.expiresAt ? new Date(token.expiresAt).toLocaleDateString() : 'Never'}</dd>
+                    </dl>
+                  </li>
+                );
+              })}
+            </ul>
+
+            <table className="w-full hidden lg:table">
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="text-left p-4 font-medium text-gray-600">Name</th>
@@ -165,19 +227,7 @@ export function Tokens() {
                         </code>
                       </td>
                       <td className="p-4 text-sm">{tokenScopeLabel(token)}</td>
-                      <td className="p-4">
-                        <span
-                          className={`text-xs font-medium px-2 py-1 rounded-full ${
-                            status === 'active'
-                              ? 'bg-green-100 text-green-700'
-                              : status === 'expired'
-                                ? 'bg-yellow-100 text-yellow-700'
-                                : 'bg-red-100 text-red-700'
-                          }`}
-                        >
-                          {status}
-                        </span>
-                      </td>
+                      <td className="p-4">{statusBadge(status)}</td>
                       <td className="p-4 text-sm text-gray-500">
                         {token.lastUsedAt ? new Date(token.lastUsedAt).toLocaleString() : 'Never'}
                       </td>
@@ -187,15 +237,7 @@ export function Tokens() {
                       <td className="p-4 text-right">
                         {!token.isRevoked && (
                           <button
-                            onClick={() =>
-                              setConfirmState({
-                                title: 'Revoke API Key',
-                                message: `Revoke API key "${token.name}"?\nAnything using it will stop working immediately.`,
-                                confirmLabel: 'Revoke',
-                                danger: true,
-                                action: () => revokeTokenMutation.mutate(token.id),
-                              })
-                            }
+                            onClick={() => setConfirmState(revokeConfirm(token))}
                             className="text-red-500 hover:text-red-700 p-2"
                             title="Revoke key"
                           >
@@ -213,8 +255,8 @@ export function Tokens() {
 
         {/* Create API Key Modal */}
         {showCreateModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+          <div className="modal-overlay">
+            <div className="modal-panel max-w-md">
               <h2 className="text-xl font-bold mb-4">Create API Key</h2>
               <p className="text-sm text-gray-500 mb-4">
                 Read-only key with access to every project in this team. Use it for CI/CD secret fetching.
@@ -244,7 +286,7 @@ export function Tokens() {
                     <option value="365">1 year</option>
                   </select>
                 </div>
-                <div className="flex justify-end gap-2">
+                <div className="modal-actions">
                   <button
                     type="button"
                     className="btn btn-secondary"
@@ -271,8 +313,8 @@ export function Tokens() {
 
         {/* Created Token — shown once */}
         {createdToken && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-lg">
+          <div className="modal-overlay">
+            <div className="modal-panel max-w-lg">
               <h2 className="text-xl font-bold mb-2">API Key Created</h2>
               <div className="flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg mb-4">
                 <AlertTriangle className="w-5 h-5 text-yellow-600 shrink-0 mt-0.5" />
@@ -280,20 +322,23 @@ export function Tokens() {
                   Copy this key now — it won't be shown again. Only a hash is stored on the server.
                 </p>
               </div>
-              <div className="flex items-center gap-2 mb-6">
-                <code className="flex-1 text-sm bg-gray-100 px-3 py-2 rounded break-all">
+              <div className="flex flex-col gap-2 mb-6 sm:flex-row sm:items-center">
+                <code className="flex-1 min-w-0 text-sm bg-gray-100 px-3 py-2 rounded break-all">
                   {createdToken}
                 </code>
                 <button
                   onClick={handleCopyToken}
-                  className="btn btn-secondary flex items-center gap-2 shrink-0"
+                  className="btn btn-secondary w-full shrink-0 sm:w-auto"
                 >
                   <Copy className="w-4 h-4" />
                   Copy
                 </button>
               </div>
-              <div className="flex justify-end">
-                <button className="btn btn-primary" onClick={() => setCreatedToken(null)}>
+              <div className="flex sm:justify-end">
+                <button
+                  className="btn btn-primary w-full sm:w-auto"
+                  onClick={() => setCreatedToken(null)}
+                >
                   Done
                 </button>
               </div>

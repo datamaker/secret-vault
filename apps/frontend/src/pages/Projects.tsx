@@ -63,8 +63,8 @@ export function Projects() {
 
   return (
     <Layout>
-      <div className="p-8">
-        <div className="flex items-center justify-between mb-8">
+      <div className="p-4 sm:p-6 lg:p-8">
+        <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between sm:mb-8">
           <div>
             <h1 className="text-2xl font-bold">Projects</h1>
             {!!projects?.length && (
@@ -73,7 +73,7 @@ export function Projects() {
           </div>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="btn btn-primary flex items-center gap-2"
+            className="btn btn-primary w-full sm:w-auto"
             disabled={!teamId}
           >
             <Plus className="w-4 h-4" />
@@ -102,7 +102,38 @@ export function Projects() {
           </div>
         ) : (
           <div className="card overflow-hidden">
-            <table className="w-full table-fixed">
+            {/* 모바일: 표를 카드 목록으로 대체 (5컬럼은 좁은 화면에 들어가지 않는다) */}
+            <ul className="divide-y md:hidden">
+              {filtered.map((project: Project) => (
+                <li key={project.id} className="row-card">
+                  <div className="flex items-start justify-between gap-2">
+                    <Link
+                      to={`/projects/${project.id}`}
+                      className="flex items-center gap-2 font-medium text-primary-600 min-w-0"
+                    >
+                      <FolderOpen className="w-4 h-4 text-gray-400 shrink-0" />
+                      <span className="truncate">{project.name}</span>
+                    </Link>
+                    <button
+                      onClick={() => openEdit(project)}
+                      className="icon-btn -my-2 text-gray-500 hover:bg-gray-100 shrink-0"
+                      aria-label={`Edit ${project.name}`}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                  </div>
+                  {project.description && (
+                    <p className="text-sm text-gray-600 break-words">{project.description}</p>
+                  )}
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                    <span>{project.environmentCount ?? '-'} environments</span>
+                    <span>{project.secretCount ?? '-'} secrets</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            <table className="w-full table-fixed hidden md:table">
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="text-left px-4 py-3 text-sm font-medium text-gray-500 w-[26%]">Project</th>
@@ -148,8 +179,8 @@ export function Projects() {
 
         {/* Create Project Modal */}
         {showCreateModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+          <div className="modal-overlay">
+            <div className="modal-panel max-w-md">
               <h2 className="text-xl font-bold mb-4">Create New Project</h2>
               <form
                 onSubmit={(e) => {
@@ -183,7 +214,7 @@ export function Projects() {
                 <p className="text-xs text-gray-500 mb-4">
                   Environments created automatically: Local, Development, Staging, Production
                 </p>
-                <div className="flex justify-end gap-2">
+                <div className="modal-actions">
                   <button
                     type="button"
                     className="btn btn-secondary"
@@ -206,8 +237,8 @@ export function Projects() {
 
         {/* Edit Project Modal */}
         {editTarget && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+          <div className="modal-overlay">
+            <div className="modal-panel max-w-md">
               <h2 className="text-xl font-bold mb-4">Edit Project</h2>
               <form
                 onSubmit={(e) => {
@@ -235,7 +266,7 @@ export function Projects() {
                     placeholder="What this project is for"
                   />
                 </div>
-                <div className="flex justify-end gap-2">
+                <div className="modal-actions">
                   <button type="button" className="btn btn-secondary" onClick={() => setEditTarget(null)}>
                     Cancel
                   </button>

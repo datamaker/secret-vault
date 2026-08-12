@@ -45,8 +45,8 @@ export function ShareSecret() {
 
   return (
     <Layout>
-      <div className="p-8 max-w-3xl">
-        <div className="mb-8">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-3xl">
+        <div className="mb-6 sm:mb-8">
           <h1 className="text-2xl font-bold">Share Secret</h1>
           <p className="text-sm text-gray-500 mt-1">
             Share a secret with an end-to-end encrypted link. The decryption key stays in the URL
@@ -55,7 +55,7 @@ export function ShareSecret() {
         </div>
 
         {createdLink ? (
-          <div className="card p-6">
+          <div className="card p-4 sm:p-6">
             <h2 className="text-lg font-bold mb-2">Link Created</h2>
             <div className="flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg mb-4">
               <AlertTriangle className="w-5 h-5 text-yellow-600 shrink-0 mt-0.5" />
@@ -64,21 +64,21 @@ export function ShareSecret() {
                 Share it over a trusted channel.
               </p>
             </div>
-            <div className="flex items-center gap-2 mb-6">
-              <code className="flex-1 text-sm bg-gray-100 px-3 py-2 rounded break-all">
+            <div className="flex flex-col gap-2 mb-6 sm:flex-row sm:items-center">
+              <code className="flex-1 min-w-0 text-sm bg-gray-100 px-3 py-2 rounded break-all">
                 {createdLink}
               </code>
-              <button onClick={copyLink} className="btn btn-secondary flex items-center gap-2 shrink-0">
+              <button onClick={copyLink} className="btn btn-secondary w-full shrink-0 sm:w-auto">
                 <Copy className="w-4 h-4" />
                 Copy
               </button>
             </div>
-            <button className="btn btn-primary" onClick={() => setCreatedLink(null)}>
+            <button className="btn btn-primary w-full sm:w-auto" onClick={() => setCreatedLink(null)}>
               Share Another Secret
             </button>
           </div>
         ) : (
-          <form onSubmit={handleCreate} className="card p-6">
+          <form onSubmit={handleCreate} className="card p-4 sm:p-6">
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">Secret</label>
               <textarea
@@ -90,7 +90,7 @@ export function ShareSecret() {
                 autoFocus
               />
             </div>
-            <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="grid grid-cols-1 gap-4 mb-6 sm:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Expires in</label>
                 <select
@@ -118,7 +118,7 @@ export function ShareSecret() {
                 </select>
               </div>
             </div>
-            <button type="submit" className="btn btn-primary flex items-center gap-2" disabled={creating}>
+            <button type="submit" className="btn btn-primary w-full sm:w-auto" disabled={creating}>
               <Send className="w-4 h-4" />
               {creating ? 'Creating...' : 'Create Share Link'}
             </button>
