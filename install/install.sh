@@ -37,7 +37,7 @@ mkdir -p data/postgres
 echo ">>> Downloading configuration files..."
 BASE_URL="https://raw.githubusercontent.com/datamaker/secret-vault/main/install"
 
-curl -sSL "$BASE_URL/docker compose.yml" -o docker compose.yml
+curl -sSL "$BASE_URL/docker-compose.yml" -o docker-compose.yml
 curl -sSL "$BASE_URL/init.sql" -o init.sql
 curl -sSL "$BASE_URL/.env.example" -o .env.example
 

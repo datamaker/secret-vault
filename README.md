@@ -71,8 +71,8 @@ Access: **http://localhost**
 # 1. Create directory
 mkdir secret-vault && cd secret-vault
 
-# 2. Download docker compose.yml
-curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/docker compose.yml -o docker compose.yml
+# 2. Download docker-compose.yml
+curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/docker-compose.yml -o docker-compose.yml
 curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/init.sql -o init.sql
 
 # 3. Create .env file with secure keys
@@ -296,8 +296,8 @@ cd secret-vault && docker compose up -d
 # 1. 디렉토리 생성
 mkdir secret-vault && cd secret-vault
 
-# 2. docker compose.yml 다운로드
-curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/docker compose.yml -o docker compose.yml
+# 2. docker-compose.yml 다운로드
+curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/docker-compose.yml -o docker-compose.yml
 curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/init.sql -o init.sql
 
 # 3. 보안 키가 포함된 .env 파일 생성
@@ -470,7 +470,7 @@ docker compose up -d
 mkdir secret-vault; cd secret-vault
 
 # 2. 파일 다운로드
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/datamaker/secret-vault/main/install/docker compose.yml" -OutFile "docker compose.yml"
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/datamaker/secret-vault/main/install/docker-compose.yml" -OutFile "docker-compose.yml"
 Invoke-WebRequest -Uri "https://raw.githubusercontent.com/datamaker/secret-vault/main/install/init.sql" -OutFile "init.sql"
 Invoke-WebRequest -Uri "https://raw.githubusercontent.com/datamaker/secret-vault/main/install/.env.example" -OutFile ".env"
 
@@ -640,8 +640,8 @@ secret-vault/
 │   └── shared/           # 공유 타입 및 상수
 ├── database/
 │   └── migrations/       # SQL 마이그레이션
-├── docker compose.yml    # 프로덕션 설정
-└── docker compose.dev.yml # 개발 설정
+├── docker-compose.yml   # 프로덕션 설정
+└── docker-compose.dev.yml # 개발 설정
 ```
 
 ---
