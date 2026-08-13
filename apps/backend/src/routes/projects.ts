@@ -2,7 +2,7 @@ import { Router } from 'express';
 import * as projectController from '../controllers/projectController';
 import * as apiTokenController from '../controllers/apiTokenController';
 import { authenticate } from '../middleware/auth';
-import { requireTeamRole, requireProjectPermission } from '../middleware/rbac';
+import { requireTeamRole, requireProjectPermission, requireEnvPermission } from '../middleware/rbac';
 
 const router = Router();
 
@@ -26,6 +26,8 @@ router.delete('/:projectId/tokens/:tokenId', requireProjectPermission('admin'), 
 // Environments
 router.get('/:projectId/environments', requireProjectPermission('read', 'write', 'admin'), projectController.getEnvironments);
 router.post('/:projectId/environments', requireProjectPermission('admin'), projectController.createEnvironment);
-router.delete('/environments/:envId', projectController.deleteEnvironment);
+// Deleting an environment cascade-deletes its secrets — admin on the owning
+// project only. This route previously had NO authorization check at all.
+router.delete('/environments/:envId', requireEnvPermission('admin'), projectController.deleteEnvironment);
 
 export default router;
