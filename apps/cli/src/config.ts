@@ -5,16 +5,29 @@ import fs from 'fs';
 interface Config {
   apiUrl: string;
   token?: string;
+  refreshToken?: string;
   project?: string;
   environment?: string;
 }
 
 const config = new Conf<Config>({
   projectName: 'secret-vault',
+  // Tokens live in this file — keep it out of other users' reach.
+  configFileMode: 0o600,
   defaults: {
     apiUrl: 'http://localhost:3000',
   },
 });
+
+// configFileMode only applies on write; fix up files created by older CLI
+// versions (conf's default left them world-readable).
+try {
+  if (fs.existsSync(config.path)) {
+    fs.chmodSync(config.path, 0o600);
+  }
+} catch {
+  // best effort — never block the CLI on a chmod failure
+}
 
 // Project-specific config file name
 const PROJECT_CONFIG_FILE = '.vault.json';
@@ -40,8 +53,17 @@ export function setToken(token: string): void {
   config.set('token', token);
 }
 
+export function getRefreshToken(): string | undefined {
+  return config.get('refreshToken');
+}
+
+export function setRefreshToken(token: string): void {
+  config.set('refreshToken', token);
+}
+
 export function clearToken(): void {
   config.delete('token');
+  config.delete('refreshToken');
 }
 
 export function getProjectConfig(): ProjectConfig | null {

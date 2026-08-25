@@ -4,6 +4,7 @@ import { Command } from 'commander';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { loginCommand } from './commands/login';
+import { statusCommand } from './commands/status';
 import { setupCommand } from './commands/setup';
 import { runCommand } from './commands/run';
 import {
@@ -28,10 +29,17 @@ program
 // Login command
 program
   .command('login')
-  .description('Login to Secret Vault')
+  .description('Login to Secret Vault (SSO device flow when the server has it enabled)')
   .option('-e, --email <email>', 'Email address')
   .option('--api-url <url>', 'API URL (default: http://localhost:3000)')
+  .option('--password', 'Use email/password login instead of SSO')
   .action(loginCommand);
+
+// Status command
+program
+  .command('status')
+  .description('Show API URL, login state and token expiry')
+  .action(statusCommand);
 
 // Logout command
 program

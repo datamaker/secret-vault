@@ -11,8 +11,15 @@ const ISSUER = (process.env.OIDC_ISSUER ?? '').replace(/\/$/, '');
 const CLIENT_ID = process.env.OIDC_CLIENT_ID ?? 'secret-vault';
 const CLIENT_SECRET = process.env.OIDC_CLIENT_SECRET ?? '';
 const PUBLIC_URL = (process.env.VAULT_PUBLIC_URL ?? '').replace(/\/$/, '');
+// Separate public client used by the CLI's device flow; its id_tokens carry a
+// different audience than the web client's.
+const CLI_CLIENT_ID = process.env.OIDC_CLI_CLIENT_ID ?? 'secret-vault-cli';
 
 export const oidcEnabled = (): boolean => Boolean(ISSUER && CLIENT_SECRET && PUBLIC_URL);
+
+export const issuer = (): string => ISSUER;
+
+export const cliClientId = (): string => CLI_CLIENT_ID;
 
 export const redirectUri = (): string => `${PUBLIC_URL}/api/v1/auth/oidc/callback`;
 
@@ -107,10 +114,19 @@ export async function exchangeCode(code: string, verifier: string): Promise<Oidc
   const { id_token: idToken } = (await res.json()) as { id_token?: string };
   if (!idToken) throw new Error('sso response missing id_token');
 
+  return verifyIdToken(idToken, CLIENT_ID);
+}
+
+/**
+ * Verifies an id_token's signature against the IdP's JWKS plus issuer and the
+ * given audience, and extracts the verified-email identity. Used both by the
+ * web callback (aud = web client) and the CLI exchange (aud = CLI client).
+ */
+export async function verifyIdToken(idToken: string, audience: string): Promise<OidcIdentity> {
   const decoded = jwt.decode(idToken, { complete: true });
   const key = await signingKey(decoded?.header.kid);
   const claims = await new Promise<jwt.JwtPayload>((resolve, reject) => {
-    jwt.verify(idToken, key, { issuer: ISSUER, audience: CLIENT_ID }, (err, c) => {
+    jwt.verify(idToken, key, { issuer: ISSUER, audience }, (err, c) => {
       if (err) reject(err);
       else resolve(c as jwt.JwtPayload);
     });

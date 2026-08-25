@@ -33,15 +33,28 @@ vault run -- npm start
 ### Authentication
 
 ```bash
-# Login
-vault login --api-url http://localhost:3000
+# Login — uses SSO (browser device flow) when the server has SSO enabled.
+# A URL and code are printed (and the browser is opened when possible);
+# approve the login in the browser and the CLI finishes on its own.
+vault login --api-url https://your-server.com
+
+# Force email/password login instead of SSO
+vault login --password
 
 # Logout
 vault logout
 
-# Check current status
+# Check current status (API URL, logged-in user, token expiry)
 vault status
 ```
+
+SSO logins store a refresh token, so an expired access token is renewed
+automatically on the next command — no interactive re-login needed (useful for
+long-running agents/CI). If the refresh token has also expired (7 days), the
+CLI asks you to run `vault login` again.
+
+Environment overrides: `VAULT_API_URL` (server URL) and `VAULT_TOKEN`
+(access or `sv_` API token; disables auto-refresh).
 
 ### Project Setup
 
@@ -174,15 +187,27 @@ vault run -- npm start
 ### 인증
 
 ```bash
-# 로그인
-vault login --api-url http://localhost:3000
+# 로그인 — 서버에 SSO가 켜져 있으면 브라우저 device flow로 진행됩니다.
+# URL과 코드가 출력되고(가능하면 브라우저 자동 오픈), 브라우저에서 승인하면
+# CLI가 자동으로 로그인을 마칩니다.
+vault login --api-url https://your-server.com
+
+# SSO 대신 이메일/패스워드 로그인 강제
+vault login --password
 
 # 로그아웃
 vault logout
 
-# 현재 상태 확인
+# 현재 상태 확인 (API URL, 로그인 사용자, 토큰 만료시각)
 vault status
 ```
+
+SSO 로그인은 refresh 토큰을 저장하므로, access 토큰이 만료돼도 다음 명령에서
+자동으로 갱신됩니다 — 대화형 재로그인이 필요 없어 장시간 실행되는 에이전트/CI에
+적합합니다. refresh 토큰(7일)까지 만료되면 `vault login`을 다시 실행하세요.
+
+환경변수 오버라이드: `VAULT_API_URL`(서버 URL), `VAULT_TOKEN`(access 또는
+`sv_` API 토큰, 자동갱신 비활성).
 
 ### 프로젝트 설정
 

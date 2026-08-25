@@ -135,8 +135,12 @@ npm install -g @datasee/vault
 ### CLI Commands
 
 ```bash
-# Login
+# Login (SSO device flow when the server has SSO enabled; --password to force
+# email/password login)
 vault login --api-url http://localhost:3000
+
+# Check login status / token expiry
+vault status
 
 # Setup project
 vault setup
@@ -197,8 +201,12 @@ Master Key (env variable)
 - `POST /api/v1/auth/register` - Register
 - `POST /api/v1/auth/login` - Login
 - `POST /api/v1/auth/logout` - Logout
-- `POST /api/v1/auth/refresh` - Refresh token
+- `POST /api/v1/auth/refresh` - Refresh token (cookie-based, web)
+- `POST /api/v1/auth/cli/refresh` - Refresh token (body-based, CLI)
 - `GET /api/v1/auth/me` - Get current user
+- `GET /api/v1/auth/oidc/status` - SSO availability (+ issuer/CLI client id)
+- `GET /api/v1/auth/oidc/start` / `GET /api/v1/auth/oidc/callback` - Web SSO
+- `POST /api/v1/auth/oidc/exchange` - CLI SSO: exchange IdP id_token for vault tokens
 
 ### Teams
 - `GET /api/v1/teams` - List teams

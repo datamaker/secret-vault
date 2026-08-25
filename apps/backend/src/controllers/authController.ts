@@ -2,12 +2,23 @@ import { Request, Response, NextFunction } from 'express';
 import * as authService from '../services/authService';
 import * as oidcService from '../services/oidcService';
 import { findOrCreateSsoUser } from '../services/oidcUserService';
+import { logActivity } from '../services/auditService';
 import { AppError } from '../middleware/errorHandler';
 
 const OIDC_COOKIE = 'vault_oidc';
 
 export const oidcStatus = (_req: Request, res: Response): void => {
-  res.json({ enabled: oidcService.oidcEnabled() });
+  const enabled = oidcService.oidcEnabled();
+  if (!enabled) {
+    res.json({ enabled: false });
+    return;
+  }
+  // issuer + cliClientId let the CLI run the device flow without local config.
+  res.json({
+    enabled: true,
+    issuer: oidcService.issuer(),
+    cliClientId: oidcService.cliClientId(),
+  });
 };
 
 export const oidcStart = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -53,6 +64,66 @@ export const oidcCallback = async (req: Request, res: Response, next: NextFuncti
 
     // The SPA login page picks the access token out of the URL hash.
     res.redirect(`/login#sso=${tokens.accessToken}`);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * CLI SSO login: the CLI completes the device flow against the IdP itself and
+ * hands us the resulting id_token. We verify it (JWKS signature, issuer,
+ * aud = CLI client id, verified email), match/JIT the user, and return both
+ * tokens in the body — the CLI cannot receive HttpOnly cookies.
+ */
+export const oidcExchange = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    if (!oidcService.oidcEnabled()) throw new AppError('SSO is not configured', 404);
+
+    const { idToken } = req.body as { idToken?: unknown };
+    if (!idToken || typeof idToken !== 'string') {
+      throw new AppError('idToken is required', 400);
+    }
+
+    let identity;
+    try {
+      identity = await oidcService.verifyIdToken(idToken, oidcService.cliClientId());
+    } catch {
+      throw new AppError('Invalid SSO token', 401);
+    }
+
+    const user = await findOrCreateSsoUser(identity.email, identity.name);
+    const tokens = authService.generateTokens(user);
+
+    await logActivity({
+      userId: user.id,
+      action: 'user.login',
+      resourceType: 'user',
+      details: { method: 'sso-cli', email: user.email },
+    });
+
+    res.json({
+      user,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Cookie-less refresh for the CLI: same verify/rotate logic as /auth/refresh,
+ * but the refresh token travels in the body both ways.
+ */
+export const cliRefresh = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { refreshToken } = req.body as { refreshToken?: unknown };
+    if (!refreshToken || typeof refreshToken !== 'string') {
+      throw new AppError('refreshToken is required', 400);
+    }
+
+    const tokens = await authService.refreshAccessToken(refreshToken);
+    res.json({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken });
   } catch (error) {
     next(error);
   }
