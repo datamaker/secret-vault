@@ -13,8 +13,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/migrations:/docker-entrypoint-initdb.d:ro
-    ports:
-      - "5432:5432"
+    # DB 는 호스트에 열지 않는다. 같은 네트워크의 backend 만 붙으면 된다.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vault_user} -d ${POSTGRES_DB:-secret_vault}"]
       interval: 10s
@@ -25,8 +24,9 @@ services:
 
   backend:
     build:
-      context: ./apps/backend
-      dockerfile: Dockerfile
+      # Dockerfile 이 packages/shared 를 참조한다 — 컨텍스트는 레포 루트여야 한다.
+      context: .
+      dockerfile: apps/backend/Dockerfile
     container_name: secret-vault-api
     restart: unless-stopped
     logging:
@@ -50,7 +50,7 @@ services:
       OIDC_CLI_CLIENT_ID: ${OIDC_CLI_CLIENT_ID:-secret-vault-cli}
       VAULT_PUBLIC_URL: ${VAULT_PUBLIC_URL:-}
     ports:
-      - "3000:3000"
+      - "${VAULT_API_PORT:-3000}:3000"
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
       interval: 30s
@@ -61,10 +61,12 @@ services:
 
   frontend:
     build:
-      context: ./apps/frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/frontend/Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
+        # 비워 두면 SPA 가 상대경로 /api/v1 을 쓰고, 이 컨테이너의 nginx 가
+        # backend 로 넘긴다. 값을 박으면 그 주소가 빌드에 그대로 굳는다.
+        VITE_API_URL: ${VITE_API_URL:-}
     container_name: secret-vault-web
     restart: unless-stopped
     logging:
@@ -73,7 +75,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "80:80"
+      - "127.0.0.1:${VAULT_WEB_PORT:-8081}:80"
     networks:
       - vault-network
 
