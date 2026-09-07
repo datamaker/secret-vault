@@ -14,6 +14,7 @@ import {
   deleteSecretCommand,
 } from './commands/secrets';
 import { exportCommand } from './commands/export';
+import { mcpCommand } from './commands/mcp';
 
 const packageJson = JSON.parse(
   readFileSync(join(__dirname, '..', 'package.json'), 'utf-8')
@@ -112,5 +113,7 @@ secrets
 secrets.action(() => {
   listSecretsCommand({});
 });
+
+program.addCommand(mcpCommand());
 
 program.parse();
