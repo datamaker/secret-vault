@@ -46,5 +46,9 @@ RUN adduser --system --uid 1001 expressjs
 USER expressjs
 
 EXPOSE 3000
+# 사내 서비스 공통 규약: /healthz 로 살아 있는지 본다.
+# 이미지에 curl·wget 을 넣지 않으려고 node 내장 fetch 를 쓴다.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:3000/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 CMD ["node", "dist/index.js"]
