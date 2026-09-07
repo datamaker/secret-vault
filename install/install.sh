@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Secret Vault Quick Installation Script
-# https://github.com/datamaker/secret-vault
+# https://github.com/datamaker/vault
 
 set -e
 
@@ -25,7 +25,7 @@ if ! command -v docker compose &> /dev/null && ! docker compose version &> /dev/
 fi
 
 # Create directory
-INSTALL_DIR="${1:-secret-vault}"
+INSTALL_DIR="${1:-vault}"
 echo ">>> Creating installation directory: $INSTALL_DIR"
 mkdir -p "$INSTALL_DIR"
 cd "$INSTALL_DIR"
@@ -35,7 +35,7 @@ mkdir -p data/postgres
 
 # Download files
 echo ">>> Downloading configuration files..."
-BASE_URL="https://raw.githubusercontent.com/datamaker/secret-vault/main/install"
+BASE_URL="https://raw.githubusercontent.com/datamaker/vault/main/install"
 
 curl -sSL "$BASE_URL/docker-compose.yml" -o docker-compose.yml
 curl -sSL "$BASE_URL/init.sql" -o init.sql

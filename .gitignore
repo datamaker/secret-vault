@@ -65,3 +65,6 @@ docker-compose.override.yml
 # package-lock.json
 # yarn.lock
 # pnpm-lock.yaml
+
+# 백엔드 이미지에 들어가는 웹 빌드 산출물
+apps/backend/public

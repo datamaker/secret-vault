@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://hub.docker.com/r/datamaker/secret-vault-backend"><img src="https://img.shields.io/docker/v/datamaker/secret-vault-backend?label=Docker%20Hub&logo=docker" alt="Docker Hub"></a>
+  <a href="https://hub.docker.com/r/datamaker/vault"><img src="https://img.shields.io/docker/v/datamaker/vault?label=Docker%20Hub&logo=docker" alt="Docker Hub"></a>
   <a href="https://www.npmjs.com/package/@datasee/vault"><img src="https://img.shields.io/npm/v/@datasee/vault?label=CLI&logo=npm" alt="npm"></a>
   <a href="#license"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
 </p>
@@ -44,8 +44,11 @@
 
 | Image | Description |
 |-------|-------------|
-| `datamaker/secret-vault-backend` | Backend API server |
-| `datamaker/secret-vault-frontend` | Frontend web application |
+| `datamaker/vault` | API server + web UI (single image) |
+
+The web UI is served by the API process, so one container covers both. Earlier
+releases shipped `datamaker/secret-vault-backend` and `-frontend` separately;
+those tags stay on Docker Hub but are no longer updated.
 
 ---
 
@@ -56,11 +59,11 @@
 The fastest way to get started. Downloads config files and generates secure keys automatically.
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/datamaker/vault/main/install/install.sh | bash
 ```
 
 ```bash
-cd secret-vault && docker compose up -d
+cd vault && docker compose up -d
 ```
 
 Access: **http://localhost**
@@ -69,11 +72,11 @@ Access: **http://localhost**
 
 ```bash
 # 1. Create directory
-mkdir secret-vault && cd secret-vault
+mkdir vault && cd vault
 
 # 2. Download docker-compose.yml
-curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/docker-compose.yml -o docker-compose.yml
-curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/init.sql -o init.sql
+curl -sSL https://raw.githubusercontent.com/datamaker/vault/main/install/docker-compose.yml -o docker-compose.yml
+curl -sSL https://raw.githubusercontent.com/datamaker/vault/main/install/init.sql -o init.sql
 
 # 3. Create .env file with secure keys
 cat > .env << EOF
@@ -96,32 +99,26 @@ docker compose up -d
 
 ```bash
 # 1. Create network
-docker network create secret-vault-network
+docker network create vault-network
 
 # 2. Run PostgreSQL
-docker run -d --name secret-vault-db \
-  --network secret-vault-network \
+docker run -d --name vault-db \
+  --network vault-network \
   -e POSTGRES_USER=vault \
   -e POSTGRES_PASSWORD=your_password \
   -e POSTGRES_DB=secret_vault \
-  -v secret-vault-data:/var/lib/postgresql/data \
+  -v vault-data:/var/lib/postgresql/data \
   postgres:16-alpine
 
-# 3. Run Backend
-docker run -d --name secret-vault-backend \
-  --network secret-vault-network \
-  -e DATABASE_URL=postgres://vault:your_password@secret-vault-db:5432/secret_vault \
+# 3. Run Vault (API + web UI)
+docker run -d --name vault \
+  --network vault-network \
+  -e DATABASE_URL=postgres://vault:your_password@vault-db:5432/secret_vault \
   -e MASTER_ENCRYPTION_KEY=$(openssl rand -hex 32) \
   -e JWT_SECRET=$(openssl rand -hex 32) \
   -e JWT_REFRESH_SECRET=$(openssl rand -hex 32) \
   -p 3000:3000 \
-  datamaker/secret-vault-backend:latest
-
-# 4. Run Frontend
-docker run -d --name secret-vault-frontend \
-  --network secret-vault-network \
-  -p 80:80 \
-  datamaker/secret-vault-frontend:latest
+  datamaker/vault:latest
 ```
 
 ---
@@ -277,8 +274,10 @@ MIT License - Free to use, modify, and distribute.
 
 | 이미지 | 설명 |
 |--------|------|
-| `datamaker/secret-vault-backend` | 백엔드 API 서버 |
-| `datamaker/secret-vault-frontend` | 프론트엔드 웹 애플리케이션 |
+| `datamaker/vault` | API 서버 + 웹 UI (단일 이미지) |
+
+웹 UI 를 API 프로세스가 함께 서빙하므로 컨테이너 하나면 된다. 이전 릴리스의
+`-backend`·`-frontend` 태그는 Docker Hub 에 남아 있지만 더 갱신하지 않는다.
 
 ---
 
@@ -289,11 +288,11 @@ MIT License - Free to use, modify, and distribute.
 가장 빠른 방법입니다. 설정 파일 다운로드와 보안 키 생성을 자동으로 처리합니다.
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/datamaker/vault/main/install/install.sh | bash
 ```
 
 ```bash
-cd secret-vault && docker compose up -d
+cd vault && docker compose up -d
 ```
 
 접속: **http://localhost**
@@ -302,11 +301,11 @@ cd secret-vault && docker compose up -d
 
 ```bash
 # 1. 디렉토리 생성
-mkdir secret-vault && cd secret-vault
+mkdir vault && cd vault
 
 # 2. docker-compose.yml 다운로드
-curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/docker-compose.yml -o docker-compose.yml
-curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/init.sql -o init.sql
+curl -sSL https://raw.githubusercontent.com/datamaker/vault/main/install/docker-compose.yml -o docker-compose.yml
+curl -sSL https://raw.githubusercontent.com/datamaker/vault/main/install/init.sql -o init.sql
 
 # 3. 보안 키가 포함된 .env 파일 생성
 cat > .env << EOF
@@ -329,32 +328,26 @@ docker compose up -d
 
 ```bash
 # 1. 네트워크 생성
-docker network create secret-vault-network
+docker network create vault-network
 
 # 2. PostgreSQL 실행
-docker run -d --name secret-vault-db \
-  --network secret-vault-network \
+docker run -d --name vault-db \
+  --network vault-network \
   -e POSTGRES_USER=vault \
   -e POSTGRES_PASSWORD=your_password \
   -e POSTGRES_DB=secret_vault \
-  -v secret-vault-data:/var/lib/postgresql/data \
+  -v vault-data:/var/lib/postgresql/data \
   postgres:16-alpine
 
-# 3. 백엔드 실행
-docker run -d --name secret-vault-backend \
-  --network secret-vault-network \
-  -e DATABASE_URL=postgres://vault:your_password@secret-vault-db:5432/secret_vault \
+# 3. Vault 실행 (API + 웹 UI)
+docker run -d --name vault \
+  --network vault-network \
+  -e DATABASE_URL=postgres://vault:your_password@vault-db:5432/secret_vault \
   -e MASTER_ENCRYPTION_KEY=$(openssl rand -hex 32) \
   -e JWT_SECRET=$(openssl rand -hex 32) \
   -e JWT_REFRESH_SECRET=$(openssl rand -hex 32) \
   -p 3000:3000 \
-  datamaker/secret-vault-backend:latest
-
-# 4. 프론트엔드 실행
-docker run -d --name secret-vault-frontend \
-  --network secret-vault-network \
-  -p 80:80 \
-  datamaker/secret-vault-frontend:latest
+  datamaker/vault:latest
 ```
 
 ---
@@ -394,8 +387,8 @@ exit
 #### 2단계: Secret Vault 설치 (원라인)
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/install.sh | bash
-cd secret-vault
+curl -sSL https://raw.githubusercontent.com/datamaker/vault/main/install/install.sh | bash
+cd vault
 docker compose up -d
 ```
 
@@ -427,7 +420,7 @@ sudo ufw allow 80  # HTTP
 ```bash
 sudo apt install -y nginx certbot python3-certbot-nginx
 
-# /etc/nginx/sites-available/secret-vault
+# /etc/nginx/sites-available/vault
 server {
     server_name vault.yourdomain.com;
 
@@ -442,7 +435,7 @@ server {
 }
 
 # 활성화 및 SSL 인증서 발급
-sudo ln -s /etc/nginx/sites-available/secret-vault /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/vault /etc/nginx/sites-enabled/
 sudo certbot --nginx -d vault.yourdomain.com
 sudo systemctl restart nginx
 ```
@@ -464,8 +457,8 @@ sudo systemctl restart nginx
 2. **터미널에서 설치 스크립트 실행**
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/datamaker/secret-vault/main/install/install.sh | bash
-cd secret-vault
+curl -sSL https://raw.githubusercontent.com/datamaker/vault/main/install/install.sh | bash
+cd vault
 docker compose up -d
 ```
 
@@ -475,12 +468,12 @@ docker compose up -d
 
 ```powershell
 # 1. 디렉토리 생성
-mkdir secret-vault; cd secret-vault
+mkdir vault; cd vault
 
 # 2. 파일 다운로드
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/datamaker/secret-vault/main/install/docker-compose.yml" -OutFile "docker-compose.yml"
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/datamaker/secret-vault/main/install/init.sql" -OutFile "init.sql"
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/datamaker/secret-vault/main/install/.env.example" -OutFile ".env"
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/datamaker/vault/main/install/docker-compose.yml" -OutFile "docker-compose.yml"
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/datamaker/vault/main/install/init.sql" -OutFile "init.sql"
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/datamaker/vault/main/install/.env.example" -OutFile ".env"
 
 # 3. .env 파일 편집 (메모장으로 열어서 키 생성 후 입력)
 notepad .env
@@ -500,8 +493,8 @@ docker compose up -d
 
 ```bash
 # 1. 저장소 클론
-git clone https://github.com/datamaker/secret-vault.git
-cd secret-vault
+git clone https://github.com/datamaker/vault.git
+cd vault
 
 # 2. 의존성 설치
 npm install
@@ -561,7 +554,7 @@ docker compose down
 
 # 데이터 포함 완전 삭제
 docker compose down -v
-rm -rf secret-vault
+rm -rf vault
 ```
 
 </details>
@@ -629,7 +622,7 @@ eval "$(vault export)"
 ## 프로젝트 구조
 
 ```
-secret-vault/
+vault/
 ├── apps/
 │   ├── backend/          # Express API 서버
 │   │   └── src/

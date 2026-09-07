@@ -1,7 +1,7 @@
 name: Release
 
 # v1.2.3 형태의 태그를 푸시하면:
-#   1. Docker Hub에 backend/frontend 이미지 push (latest + 버전 태그)
+#   1. Docker Hub 에 datamaker/vault 이미지 push (latest + 버전 태그)
 #   2. npm 에 CLI 스테이징 — Trusted Publishing(OIDC), 토큰 없음.
 #      공개되려면 npmjs.com 에서 사람이 승인해야 한다.
 #   3. GitHub Release 생성 (커밋 기반 릴리즈 노트 자동 생성)
@@ -36,30 +36,17 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push backend
+      - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: apps/backend/Dockerfile
+          file: Dockerfile
           push: true
           tags: |
-            datamaker/secret-vault-backend:latest
-            datamaker/secret-vault-backend:${{ steps.version.outputs.version }}
+            datamaker/vault:latest
+            datamaker/vault:${{ steps.version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Build and push frontend
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: apps/frontend/Dockerfile
-          push: true
-          tags: |
-            datamaker/secret-vault-frontend:latest
-            datamaker/secret-vault-frontend:${{ steps.version.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
 
   npm:
     runs-on: ubuntu-latest
@@ -124,7 +111,7 @@ jobs:
               echo "$CHANGED"
               echo ""
               echo '```bash'
-              echo 'docker exec -i secret-vault-db psql -U vault_user -d secret_vault < database/migrations/<file>.sql'
+              echo 'docker exec -i vault-db psql -U vault_user -d secret_vault < database/migrations/<file>.sql'
               echo '```'
             fi
             echo "NOTE_EOF"

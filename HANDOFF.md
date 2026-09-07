@@ -53,8 +53,9 @@ Secret Vault는 Doppler의 대안으로 개발된 시크릿 관리 시스템입�
 ## 배포 정보
 
 ### Docker Hub 이미지
-- `datamaker/secret-vault-frontend:latest`
-- `datamaker/secret-vault-backend:latest`
+- `datamaker/vault:latest` (API + 웹 UI 단일 이미지)
+  이전에는 `-backend` / `-frontend` 두 개였다. 태그는 Docker Hub 에 남아 있지만
+  더 갱신하지 않는다.
 - 지원 플랫폼: linux/amd64, linux/arm64
 
 ### 서버 업데이트 방법
@@ -66,7 +67,7 @@ docker compose down && docker compose up -d
 
 ## 주요 파일 구조
 ```
-secret-vault/
+vault/
 ├── apps/
 │   ├── frontend/          # React 프론트엔드
 │   │   ├── src/

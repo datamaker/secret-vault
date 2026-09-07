@@ -127,12 +127,12 @@ git commit -m "Add vault configuration"
 A Secret Vault server is required to use this CLI.
 
 ```bash
-git clone https://github.com/datamaker/secret-vault.git
-cd secret-vault
+git clone https://github.com/datamaker/vault.git
+cd vault
 docker-compose up -d
 ```
 
-For detailed installation instructions, see the [GitHub repository](https://github.com/datamaker/secret-vault).
+For detailed installation instructions, see the [GitHub repository](https://github.com/datamaker/vault).
 
 ## Key Features
 
@@ -147,8 +147,8 @@ MIT License
 
 ## Links
 
-- [GitHub](https://github.com/datamaker/secret-vault)
-- [Issues](https://github.com/datamaker/secret-vault/issues)
+- [GitHub](https://github.com/datamaker/vault)
+- [Issues](https://github.com/datamaker/vault/issues)
 
 ---
 
@@ -280,12 +280,12 @@ git commit -m "Add vault configuration"
 CLI를 사용하려면 Secret Vault 서버가 필요합니다.
 
 ```bash
-git clone https://github.com/datamaker/secret-vault.git
-cd secret-vault
+git clone https://github.com/datamaker/vault.git
+cd vault
 docker-compose up -d
 ```
 
-자세한 설치 방법은 [GitHub 저장소](https://github.com/datamaker/secret-vault)를 참조하세요.
+자세한 설치 방법은 [GitHub 저장소](https://github.com/datamaker/vault)를 참조하세요.
 
 ## 주요 기능
 

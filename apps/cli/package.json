@@ -16,12 +16,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/datamaker/secret-vault.git",
+    "url": "https://github.com/datamaker/vault.git",
     "directory": "apps/cli"
   },
-  "homepage": "https://github.com/datamaker/secret-vault#readme",
+  "homepage": "https://github.com/datamaker/vault#readme",
   "bugs": {
-    "url": "https://github.com/datamaker/secret-vault/issues"
+    "url": "https://github.com/datamaker/vault/issues"
   },
   "bin": {
     "vault": "dist/index.js"
