@@ -47,6 +47,9 @@ function registerTools(server: McpServer) {
       if (!getToken()) {
         return ok({ apiUrl: getApiUrl(), loggedIn: false, hint: '`vault login` 으로 로그인하세요.' });
       }
+      // /auth/me 는 토큰 자동 갱신 대상에서 빠져 있다(리프레시 자신을 갱신할 순
+      // 없으니까). 액세스 토큰만 만료된 경우 여기서 실패하므로, 갱신을 타는
+      // 일반 엔드포인트로 한 번 더 확인해 "로그아웃됨" 오판을 피한다.
       try {
         const me = await get<{ email: string; name?: string }>('/auth/me');
         return ok({
@@ -57,7 +60,19 @@ function registerTools(server: McpServer) {
           defaultEnvironment: getEnvironment() ?? null,
         });
       } catch {
-        return ok({ apiUrl: getApiUrl(), loggedIn: false, hint: '세션이 만료됐습니다. `vault login`.' });
+        try {
+          const teams = await get<unknown[]>('/teams');
+          return ok({
+            apiUrl: getApiUrl(),
+            loggedIn: true,
+            note: '액세스 토큰이 갱신되었습니다.',
+            teams: Array.isArray(teams) ? teams.length : undefined,
+            defaultProject: getProject() ?? null,
+            defaultEnvironment: getEnvironment() ?? null,
+          });
+        } catch {
+          return ok({ apiUrl: getApiUrl(), loggedIn: false, hint: '세션이 만료됐습니다. `vault login`.' });
+        }
       }
     }
   );
@@ -78,7 +93,20 @@ function registerTools(server: McpServer) {
     async ({ teamId }) => ok(await get(`/teams/${teamId}/activity`))
   );
 
-  server.tool('vault_projects', '프로젝트 목록.', {}, async () => ok(await get('/projects')));
+  server.tool(
+    'vault_projects',
+    '팀의 프로젝트 목록. teamId 는 vault_teams 로 얻는다.',
+    { teamId: z.string() },
+    // 프로젝트는 팀 안에 있다 — 전역 목록 엔드포인트는 없다.
+    async ({ teamId }) => ok(await get(`/projects/teams/${teamId}/projects`))
+  );
+
+  server.tool(
+    'vault_project',
+    '프로젝트 한 건의 상세.',
+    { projectId: z.string() },
+    async ({ projectId }) => ok(await get(`/projects/${projectId}`))
+  );
 
   server.tool(
     'vault_environments',
