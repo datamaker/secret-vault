@@ -3,6 +3,9 @@ services:
     image: postgres:16-alpine
     container_name: secret-vault-db
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: '20m', max-file: '5' }
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-secret_vault}
       POSTGRES_USER: ${POSTGRES_USER:-vault_user}
@@ -26,6 +29,9 @@ services:
       dockerfile: Dockerfile
     container_name: secret-vault-api
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: '20m', max-file: '5' }
     depends_on:
       postgres:
         condition: service_healthy
@@ -61,6 +67,9 @@ services:
         VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
     container_name: secret-vault-web
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: '20m', max-file: '5' }
     depends_on:
       - backend
     ports:
